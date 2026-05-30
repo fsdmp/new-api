@@ -135,6 +135,10 @@ func RequestStripeAmount(c *gin.Context) {
 }
 
 func RequestStripePay(c *gin.Context) {
+	if !requireTosAcceptance(c) {
+		return
+	}
+
 	var req StripePayRequest
 	err := c.ShouldBindJSON(&req)
 	if err != nil {

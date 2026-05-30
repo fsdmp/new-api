@@ -330,3 +330,8 @@ const (
 	MsgCustomOAuthBindingNotFound   = "custom_oauth.binding_not_found"
 	MsgCustomOAuthProviderIdInvalid = "custom_oauth.provider_id_field_invalid"
 )
+
+// ToS related messages
+const (
+	MsgTosAcceptanceRequired = "tos.acceptance_required"
+)

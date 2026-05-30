@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next'
 import { Markdown } from '@/components/ui/markdown'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PublicLayout } from '@/components/layout'
+import { useStatus } from '@/hooks/use-status'
 import { getAboutContent } from './api'
 
 function isValidUrl(value: string) {
@@ -39,7 +40,9 @@ function isLikelyHtml(value: string) {
 
 function EmptyAboutState() {
   const { t } = useTranslation()
+  const { status } = useStatus()
   const currentYear = new Date().getFullYear()
+  const repoUrl = status?.source_code_url || 'https://github.com/QuantumNous/new-api'
 
   return (
     <div className='flex min-h-[60vh] items-center justify-center p-8'>
@@ -59,12 +62,12 @@ function EmptyAboutState() {
           <p>
             {t('New API Project Repository:')}{' '}
             <a
-              href='https://github.com/QuantumNous/new-api'
+              href={repoUrl}
               target='_blank'
               rel='noopener noreferrer'
               className='text-primary hover:underline'
             >
-              {t('https://github.com/QuantumNous/new-api')}
+              {repoUrl}
             </a>
           </p>
           <p className='text-muted-foreground'>

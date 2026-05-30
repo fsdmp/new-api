@@ -27,6 +27,10 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/notice", controller.GetNotice)
 		apiRouter.GET("/user-agreement", controller.GetUserAgreement)
 		apiRouter.GET("/privacy-policy", controller.GetPrivacyPolicy)
+		apiRouter.GET("/terms-of-service", controller.GetTermsOfService)
+		apiRouter.GET("/sla", controller.GetSLA)
+		apiRouter.GET("/dpa", controller.GetDPA)
+		apiRouter.GET("/source", controller.GetSourceCode)
 		apiRouter.GET("/about", controller.GetAbout)
 		//apiRouter.GET("/midjourney", controller.GetMidjourney)
 		apiRouter.GET("/home_page_content", controller.GetHomePageContent)
@@ -106,6 +110,10 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/waffo-pancake/pay", middleware.CriticalRateLimit(), controller.RequestWaffoPancakePay)
 				selfRoute.POST("/aff_transfer", controller.TransferAffQuota)
 				selfRoute.PUT("/setting", controller.UpdateUserSetting)
+
+				// ToS acceptance routes
+				selfRoute.GET("/tos/status", controller.GetTosStatus)
+				selfRoute.POST("/tos/accept", controller.AcceptTos)
 
 				// 2FA routes
 				selfRoute.GET("/2fa/status", controller.Get2FAStatus)

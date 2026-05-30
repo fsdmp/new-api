@@ -102,6 +102,10 @@ func SubscriptionRequestBalancePay(c *gin.Context) {
 		return
 	}
 
+	if !requireTosAcceptance(c) {
+		return
+	}
+
 	userId := c.GetInt("id")
 	var req SubscriptionBalancePayRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 {

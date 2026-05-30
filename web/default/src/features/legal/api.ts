@@ -28,3 +28,28 @@ export async function getPrivacyPolicy() {
   const res = await api.get<LegalDocumentResponse>('/api/privacy-policy')
   return res.data
 }
+
+export async function getTermsOfService() {
+  const res = await api.get<LegalDocumentResponse>('/api/terms-of-service')
+  return res.data
+}
+
+export async function getSLA() {
+  const res = await api.get<LegalDocumentResponse>('/api/sla')
+  return res.data
+}
+
+export async function getDPA() {
+  const res = await api.get<LegalDocumentResponse>('/api/dpa')
+  return res.data
+}
+
+export async function getTosStatus() {
+  const res = await api.get<{ success: boolean; message: string; data: { needs_acceptance: boolean } }>('/api/user/tos/status')
+  return res.data
+}
+
+export async function acceptTos() {
+  const res = await api.post<{ success: boolean; message: string; data: { accepted: boolean; version: string; accepted_at: number } }>('/api/user/tos/accept')
+  return res.data
+}

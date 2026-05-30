@@ -26,6 +26,10 @@ func SubscriptionRequestEpay(c *gin.Context) {
 		return
 	}
 
+	if !requireTosAcceptance(c) {
+		return
+	}
+
 	var req SubscriptionEpayPayRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 {
 		common.ApiErrorMsg(c, "参数错误")

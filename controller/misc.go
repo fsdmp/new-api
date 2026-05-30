@@ -47,6 +47,7 @@ func GetStatus(c *gin.Context) {
 
 	passkeySetting := system_setting.GetPasskeySettings()
 	legalSetting := system_setting.GetLegalSettings()
+	sourceCodeSetting := system_setting.GetSourceCodeSettings()
 
 	data := gin.H{
 		"version":                     common.Version,
@@ -119,6 +120,10 @@ func GetStatus(c *gin.Context) {
 		"setup":                       constant.Setup,
 		"user_agreement_enabled":      legalSetting.UserAgreement != "",
 		"privacy_policy_enabled":      legalSetting.PrivacyPolicy != "",
+		"terms_of_service_enabled":    legalSetting.TermsOfService != "",
+		"sla_enabled":                 legalSetting.SLA != "",
+		"dpa_enabled":                 legalSetting.DPA != "",
+		"source_code_url":             sourceCodeSetting.SourceCodeURL,
 		"checkin_enabled":             operation_setting.GetCheckinSetting().Enabled,
 	}
 
@@ -205,6 +210,47 @@ func GetPrivacyPolicy(c *gin.Context) {
 		"success": true,
 		"message": "",
 		"data":    system_setting.GetLegalSettings().PrivacyPolicy,
+	})
+	return
+}
+
+func GetTermsOfService(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    system_setting.GetLegalSettings().TermsOfService,
+	})
+	return
+}
+
+func GetSLA(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    system_setting.GetLegalSettings().SLA,
+	})
+	return
+}
+
+func GetDPA(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    system_setting.GetLegalSettings().DPA,
+	})
+	return
+}
+
+func GetSourceCode(c *gin.Context) {
+	sourceCodeSetting := system_setting.GetSourceCodeSettings()
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data": gin.H{
+			"source_code_url": sourceCodeSetting.SourceCodeURL,
+			"version":         common.Version,
+			"license":         "AGPL-3.0",
+		},
 	})
 	return
 }

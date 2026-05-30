@@ -67,6 +67,10 @@ export type SiteSettings = {
   ServerAddress: string
   'legal.user_agreement': string
   'legal.privacy_policy': string
+  'legal.terms_of_service': string
+  'legal.sla': string
+  'legal.dpa': string
+  'source_code.source_code_url': string
   HeaderNavModules: string
   SidebarModulesAdmin: string
 }

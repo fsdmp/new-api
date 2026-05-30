@@ -96,6 +96,27 @@ function LegalLinks(props: { leadingSeparator?: boolean }) {
       href: '/privacy-policy',
     })
   }
+  if (status?.terms_of_service_enabled) {
+    items.push({
+      key: 'terms-of-service',
+      label: t('Terms of Service'),
+      href: '/terms-of-service',
+    })
+  }
+  if (status?.sla_enabled) {
+    items.push({
+      key: 'sla',
+      label: t('SLA'),
+      href: '/sla',
+    })
+  }
+  if (status?.dpa_enabled) {
+    items.push({
+      key: 'dpa',
+      label: t('DPA'),
+      href: '/dpa',
+    })
+  }
   if (items.length === 0) {
     return null
   }
@@ -145,6 +166,23 @@ function ProjectAttribution(props: { currentYear: number; inline?: boolean }) {
     <div className='text-muted-foreground/45 text-center text-xs sm:text-right'>
       {content}
     </div>
+  )
+}
+
+function SourceCodeLink() {
+  const { t } = useTranslation()
+  const { status } = useStatus()
+  const url = status?.source_code_url || 'https://github.com/QuantumNous/new-api'
+
+  return (
+    <a
+      href={url}
+      target='_blank'
+      rel='noopener noreferrer'
+      className='text-muted-foreground hover:text-foreground text-sm transition-colors duration-200'
+    >
+      {t('Source Code')}
+    </a>
   )
 }
 
@@ -237,6 +275,7 @@ export function Footer(props: FooterProps) {
             />
             <div className='border-border/60 text-muted-foreground/45 flex w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t pt-4 text-xs sm:w-auto sm:justify-end sm:border-t-0 sm:border-l sm:pt-0 sm:pl-5'>
               <LegalLinks />
+              <SourceCodeLink />
               <ProjectAttribution currentYear={currentYear} inline />
             </div>
           </div>
@@ -298,6 +337,10 @@ export function Footer(props: FooterProps) {
               {props.copyright ?? t('footer.defaultCopyright')}
             </span>
             <LegalLinks leadingSeparator />
+            <span aria-hidden='true' className='text-muted-foreground/30'>
+              ·
+            </span>
+            <SourceCodeLink />
           </div>
           <ProjectAttribution currentYear={currentYear} />
         </div>

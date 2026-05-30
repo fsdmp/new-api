@@ -14,6 +14,8 @@ import (
 
 var StartTime = time.Now().Unix() // unit: second
 var Version = "v0.0.0"            // this hard coding will be replaced automatically when building, no need to manually change
+var BuildTime = ""                // injected via -ldflags at build time
+var GitCommit = ""                // injected via -ldflags at build time
 var SystemName = "New API"
 var Footer = ""
 var Logo = ""

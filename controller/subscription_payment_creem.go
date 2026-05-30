@@ -25,6 +25,10 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 		return
 	}
 
+	if !requireTosAcceptance(c) {
+		return
+	}
+
 	var req SubscriptionCreemPayRequest
 
 	// Keep body for debugging consistency (like RequestCreemPay)

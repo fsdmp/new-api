@@ -64,6 +64,12 @@ const _systemInfoSchema = z.object({
   legal: z.object({
     user_agreement: z.string().optional(),
     privacy_policy: z.string().optional(),
+    terms_of_service: z.string().optional(),
+    sla: z.string().optional(),
+    dpa: z.string().optional(),
+  }),
+  source_code: z.object({
+    source_code_url: z.string().optional(),
   }),
 })
 
@@ -96,6 +102,14 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
     legal: {
       user_agreement: normalizeValue(defaultValues.legal?.user_agreement),
       privacy_policy: normalizeValue(defaultValues.legal?.privacy_policy),
+      terms_of_service: normalizeValue(defaultValues.legal?.terms_of_service),
+      sla: normalizeValue(defaultValues.legal?.sla),
+      dpa: normalizeValue(defaultValues.legal?.dpa),
+    },
+    source_code: {
+      source_code_url: normalizeValue(
+        defaultValues.source_code?.source_code_url
+      ),
     },
   }
 
@@ -114,6 +128,12 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
     legal: z.object({
       user_agreement: z.string().optional(),
       privacy_policy: z.string().optional(),
+      terms_of_service: z.string().optional(),
+      sla: z.string().optional(),
+      dpa: z.string().optional(),
+    }),
+    source_code: z.object({
+      source_code_url: z.string().optional(),
     }),
   })
 
@@ -372,6 +392,103 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                     <FormDescription>
                       {t(
                         'Leave empty to disable the privacy policy requirement. Supports Markdown, HTML, or a full URL to redirect users.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='legal.terms_of_service'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Terms of Service')}</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder={t(
+                          'Provide Markdown, HTML, or an external URL for the terms of service'
+                        )}
+                        rows={6}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Leave empty to disable the terms of service requirement. Supports Markdown, HTML, or a full URL to redirect users.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='legal.sla'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('SLA')}</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder={t(
+                          'Provide Markdown, HTML, or an external URL for the service level agreement'
+                        )}
+                        rows={6}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Leave empty to disable the SLA requirement. Supports Markdown, HTML, or a full URL to redirect users.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='legal.dpa'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('DPA')}</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder={t(
+                          'Provide Markdown, HTML, or an external URL for the data processing agreement'
+                        )}
+                        rows={6}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Leave empty to disable the DPA requirement. Supports Markdown, HTML, or a full URL to redirect users.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='source_code.source_code_url'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Source Code URL')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder='https://github.com/your-org/your-repo'
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'URL to the source code repository (required for AGPL compliance). If empty, the default repository URL will be used.'
                       )}
                     </FormDescription>
                     <FormMessage />

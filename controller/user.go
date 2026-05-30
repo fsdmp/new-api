@@ -1109,6 +1109,10 @@ func TopUp(c *gin.Context) {
 		return
 	}
 
+	if !requireTosAcceptance(c) {
+		return
+	}
+
 	id := c.GetInt("id")
 	lock := getTopUpLock(id)
 	if !lock.TryLock() {

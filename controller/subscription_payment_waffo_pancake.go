@@ -25,6 +25,10 @@ func SubscriptionRequestWaffoPancakePay(c *gin.Context) {
 		return
 	}
 
+	if !requireTosAcceptance(c) {
+		return
+	}
+
 	var req SubscriptionWaffoPancakePayRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 {
 		common.ApiErrorMsg(c, "参数错误")
