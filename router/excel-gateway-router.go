@@ -11,11 +11,11 @@ import (
 func SetExcelGatewayRouter(router *gin.Engine) {
 	excel := router.Group("/excel")
 	excel.Use(middleware.RouteTag("excel-gateway"))
-	{
-		excel.GET("/healthz", controller.Healthz)
-		excel.GET("/shortcuts.json", controller.ShortcutsMock)
-		excel.GET("/models", controller.ExcelListModels)
-	}
+	excel.GET("/healthz", controller.Healthz)
+	excel.GET("/shortcuts.json", controller.ShortcutsMock)
+
+	excel.GET("/models", controller.ExcelListModels)
+	excel.GET("/v1/models", middleware.RouteTag("excel-gateway"), controller.ExcelListModels)
 
 	excel.GET("/v1/metrics", middleware.RouteTag("excel-gateway"), controller.MetricsMock)
 	excel.POST("/v1/metrics", middleware.RouteTag("excel-gateway"), controller.MetricsMock)
@@ -41,6 +41,5 @@ func SetExcelGatewayRouter(router *gin.Engine) {
 		httpRouter.POST("/messages", func(c *gin.Context) {
 			controller.Relay(c, types.RelayFormatClaude)
 		})
-		httpRouter.GET("/models", controller.ExcelListModels)
 	}
 }
