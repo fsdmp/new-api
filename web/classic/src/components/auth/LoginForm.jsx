@@ -36,6 +36,7 @@ import {
   onOIDCClicked,
   onLinuxDOOAuthClicked,
   onCustomOAuthClicked,
+  onWeChatOAuthClicked,
   prepareCredentialRequestOptions,
   buildAssertionResult,
   isPasskeySupported,
@@ -95,6 +96,7 @@ const LoginForm = () => {
   const [discordLoading, setDiscordLoading] = useState(false);
   const [oidcLoading, setOidcLoading] = useState(false);
   const [linuxdoLoading, setLinuxdoLoading] = useState(false);
+  const [wechatOAuthLoading, setWechatOAuthLoading] = useState(false);
   const [emailLoginLoading, setEmailLoginLoading] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
@@ -138,6 +140,7 @@ const LoginForm = () => {
       status.discord_oauth ||
       status.oidc_enabled ||
       status.wechat_login ||
+      status.wechat_oauth ||
       status.linuxdo_oauth ||
       status.telegram_oauth ||
       hasCustomOAuthProviders,
@@ -349,6 +352,22 @@ const LoginForm = () => {
     } finally {
       // 由于重定向，这里不会执行到，但为了完整性添加
       setTimeout(() => setDiscordLoading(false), 3000);
+    }
+  };
+
+  // 包装的微信开放平台 OAuth 登录点击处理
+  const handleWeChatOAuthClick = () => {
+    if ((hasUserAgreement || hasPrivacyPolicy) && !agreedToTerms) {
+      showInfo(t('请先阅读并同意用户协议和隐私政策'));
+      return;
+    }
+    setWechatOAuthLoading(true);
+    try {
+      onWeChatOAuthClicked(status.wechat_oauth_appid, {
+        shouldLogout: true,
+      });
+    } finally {
+      setTimeout(() => setWechatOAuthLoading(false), 3000);
     }
   };
 
@@ -566,6 +585,26 @@ const LoginForm = () => {
                     loading={discordLoading}
                   >
                     <span className='ml-3'>{t('使用 Discord 继续')}</span>
+                  </Button>
+                )}
+
+                {status.wechat_oauth && (
+                  <Button
+                    theme='outline'
+                    className='w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors'
+                    type='tertiary'
+                    icon={
+                      <Icon
+                        svg={<WeChatIcon />}
+                        style={{ color: '#07C160' }}
+                      />
+                    }
+                    onClick={handleWeChatOAuthClick}
+                    loading={wechatOAuthLoading}
+                  >
+                    <span className='ml-3'>
+                      {t('使用 微信开放平台 OAuth 继续')}
+                    </span>
                   </Button>
                 )}
 

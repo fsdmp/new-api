@@ -31,6 +31,7 @@ import {
   setUserData,
   onDiscordOAuthClicked,
   onCustomOAuthClicked,
+  onWeChatOAuthClicked,
 } from '../../helpers';
 import Turnstile from 'react-turnstile';
 import {
@@ -94,6 +95,7 @@ const RegisterForm = () => {
   const [discordLoading, setDiscordLoading] = useState(false);
   const [oidcLoading, setOidcLoading] = useState(false);
   const [linuxdoLoading, setLinuxdoLoading] = useState(false);
+  const [wechatOAuthLoading, setWechatOAuthLoading] = useState(false);
   const [emailRegisterLoading, setEmailRegisterLoading] = useState(false);
   const [registerLoading, setRegisterLoading] = useState(false);
   const [verificationCodeLoading, setVerificationCodeLoading] = useState(false);
@@ -136,6 +138,7 @@ const RegisterForm = () => {
       status.discord_oauth ||
       status.oidc_enabled ||
       status.wechat_login ||
+      status.wechat_oauth ||
       status.linuxdo_oauth ||
       status.telegram_oauth ||
       hasCustomOAuthProviders,
@@ -333,6 +336,15 @@ const RegisterForm = () => {
     }
   };
 
+  const handleWeChatOAuthClick = () => {
+    setWechatOAuthLoading(true);
+    try {
+      onWeChatOAuthClicked(status.wechat_oauth_appid, { shouldLogout: true });
+    } finally {
+      setTimeout(() => setWechatOAuthLoading(false), 3000);
+    }
+  };
+
   const handleCustomOAuthClick = (provider) => {
     setCustomOAuthLoading((prev) => ({ ...prev, [provider.slug]: true }));
     try {
@@ -422,6 +434,26 @@ const RegisterForm = () => {
                     loading={wechatLoading}
                   >
                     <span className='ml-3'>{t('使用 微信 继续')}</span>
+                  </Button>
+                )}
+
+                {status.wechat_oauth && (
+                  <Button
+                    theme='outline'
+                    className='w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors'
+                    type='tertiary'
+                    icon={
+                      <Icon
+                        svg={<WeChatIcon />}
+                        style={{ color: '#07C160' }}
+                      />
+                    }
+                    onClick={handleWeChatOAuthClick}
+                    loading={wechatOAuthLoading}
+                  >
+                    <span className='ml-3'>
+                      {t('使用 微信开放平台 OAuth 继续')}
+                    </span>
                   </Button>
                 )}
 

@@ -77,6 +77,9 @@ const SystemSetting = () => {
     WeChatServerAddress: '',
     WeChatServerToken: '',
     WeChatAccountQRCodeImageURL: '',
+    'wechat_oauth.enabled': '',
+    'wechat_oauth.app_id': '',
+    'wechat_oauth.app_secret': '',
     TurnstileCheckEnabled: '',
     TurnstileSiteKey: '',
     TurnstileSecretKey: '',
@@ -189,6 +192,7 @@ const SystemSetting = () => {
           case 'oidc.enabled':
           case 'passkey.enabled':
           case 'passkey.allow_insecure_origin':
+          case 'wechat_oauth.enabled':
           case 'WorkerAllowHttpImageRequestEnabled':
             item.value = toBoolean(item.value);
             break;
@@ -497,6 +501,33 @@ const SystemSetting = () => {
       options.push({
         key: 'discord.client_secret',
         value: inputs['discord.client_secret'],
+      });
+    }
+
+    if (options.length > 0) {
+      await updateOptions(options);
+    }
+  };
+
+  const submitWeChatOAuth = async () => {
+    const options = [];
+
+    if (
+      originInputs['wechat_oauth.app_id'] !== inputs['wechat_oauth.app_id']
+    ) {
+      options.push({
+        key: 'wechat_oauth.app_id',
+        value: inputs['wechat_oauth.app_id'],
+      });
+    }
+    if (
+      originInputs['wechat_oauth.app_secret'] !==
+        inputs['wechat_oauth.app_secret'] &&
+      inputs['wechat_oauth.app_secret'] !== ''
+    ) {
+      options.push({
+        key: 'wechat_oauth.app_secret',
+        value: inputs['wechat_oauth.app_secret'],
       });
     }
 
@@ -1074,6 +1105,15 @@ const SystemSetting = () => {
                         {t('允许通过微信登录 & 注册')}
                       </Form.Checkbox>
                       <Form.Checkbox
+                        field="['wechat_oauth.enabled']"
+                        noLabel
+                        onChange={(e) =>
+                          handleCheckboxChange('wechat_oauth.enabled', e)
+                        }
+                      >
+                        {t('允许通过微信开放平台 OAuth 登录 & 注册')}
+                      </Form.Checkbox>
+                      <Form.Checkbox
                         field='TelegramOAuthEnabled'
                         noLabel
                         onChange={(e) =>
@@ -1577,6 +1617,42 @@ const SystemSetting = () => {
                   </Row>
                   <Button onClick={submitWeChat}>
                     {t('保存 WeChat Server 设置')}
+                  </Button>
+                </Form.Section>
+              </Card>
+
+              <Card>
+                <Form.Section text={t('配置微信开放平台 OAuth')}>
+                  <Text>
+                    {t(
+                      '用以支持通过微信开放平台网站应用扫码登录（区别于微信公众号验证码登录）',
+                    )}
+                  </Text>
+                  <Banner
+                    type='info'
+                    description={`${t('授权回调域填写')} ${inputs.ServerAddress ? new URL(inputs.ServerAddress).hostname : t('网站域名')}`}
+                    style={{ marginBottom: 20, marginTop: 16 }}
+                  />
+                  <Row
+                    gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
+                  >
+                    <Col xs={24} sm={24} md={12} lg={12} xl={12}>
+                      <Form.Input
+                        field="['wechat_oauth.app_id']"
+                        label={t('微信开放平台 App ID')}
+                      />
+                    </Col>
+                    <Col xs={24} sm={24} md={12} lg={12} xl={12}>
+                      <Form.Input
+                        field="['wechat_oauth.app_secret']"
+                        label={t('微信开放平台 App Secret')}
+                        type='password'
+                        placeholder={t('敏感信息不会发送到前端显示')}
+                      />
+                    </Col>
+                  </Row>
+                  <Button onClick={submitWeChatOAuth}>
+                    {t('保存微信开放平台 OAuth 设置')}
                   </Button>
                 </Form.Section>
               </Card>

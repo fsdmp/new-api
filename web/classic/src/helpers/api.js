@@ -315,6 +315,15 @@ export async function onLinuxDOOAuthClicked(
   );
 }
 
+export async function onWeChatOAuthClicked(app_id, options = {}) {
+  const state = await prepareOAuthState(options);
+  if (!state) return;
+  const redirect_uri = `${window.location.origin}/oauth/wechat-oauth`;
+  redirectToOAuthUrl(
+    `https://open.weixin.qq.com/connect/qrconnect?appid=${app_id}&redirect_uri=${encodeURIComponent(redirect_uri)}&response_type=code&scope=snsapi_login&state=${state}#wechat_redirect`,
+  );
+}
+
 /**
  * Initiate custom OAuth login
  * @param {Object} provider - Custom OAuth provider config from status API
