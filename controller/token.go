@@ -117,23 +117,24 @@ func GetTokenStatus(c *gin.Context) {
 
 func GetTokenUsage(c *gin.Context) {
 	authHeader := c.GetHeader("Authorization")
-	if authHeader == "" {
+	tokenKey := ""
+	if authHeader != "" {
+		parts := strings.Split(authHeader, " ")
+		if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
+			tokenKey = parts[1]
+		}
+	}
+	// 支持通过 x-api-key 头传递令牌
+	if tokenKey == "" {
+		tokenKey = c.GetHeader("x-api-key")
+	}
+	if tokenKey == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"success": false,
-			"message": "No Authorization header",
+			"message": "No Authorization header or x-api-key header",
 		})
 		return
 	}
-
-	parts := strings.Split(authHeader, " ")
-	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"success": false,
-			"message": "Invalid Bearer token",
-		})
-		return
-	}
-	tokenKey := parts[1]
 
 	token, err := model.GetTokenByKey(strings.TrimPrefix(tokenKey, "sk-"), false)
 	if err != nil {

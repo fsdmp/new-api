@@ -4,6 +4,7 @@ import (
 	"io"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/setting/excel_setting"
 
 	"github.com/gin-gonic/gin"
 )
@@ -88,6 +89,13 @@ func ExcelRequestAdapter() gin.HandlerFunc {
 
 		sanitized := sanitizeExcelBody(body)
 		injectExcelChineseLanguage(sanitized)
+
+		// Route model alias to actual model name
+		if modelVal, ok := sanitized["model"]; ok {
+			if modelName, ok := modelVal.(string); ok {
+				sanitized["model"] = excel_setting.RouteExcelModel(modelName)
+			}
+		}
 
 		// Default max_tokens
 		if v, ok := sanitized["max_tokens"]; !ok || !isValidMaxTokens(v) {

@@ -9,23 +9,27 @@ import (
 )
 
 func SetExcelGatewayRouter(router *gin.Engine) {
-	router.GET("/healthz", middleware.RouteTag("excel-gateway"), controller.Healthz)
+	excel := router.Group("/excel")
+	excel.Use(middleware.RouteTag("excel-gateway"))
+	{
+		excel.GET("/healthz", controller.Healthz)
+		excel.GET("/shortcuts.json", controller.ShortcutsMock)
+		excel.GET("/models", controller.ExcelListModels)
+	}
 
-	router.GET("/v1/metrics", middleware.RouteTag("excel-gateway"), controller.MetricsMock)
-	router.POST("/v1/metrics", middleware.RouteTag("excel-gateway"), controller.MetricsMock)
+	excel.GET("/v1/metrics", middleware.RouteTag("excel-gateway"), controller.MetricsMock)
+	excel.POST("/v1/metrics", middleware.RouteTag("excel-gateway"), controller.MetricsMock)
 
-	router.GET("/v2/traces", middleware.RouteTag("excel-gateway"), controller.TracesMock)
-	router.POST("/v2/traces", middleware.RouteTag("excel-gateway"), controller.TracesMock)
+	excel.GET("/v2/traces", middleware.RouteTag("excel-gateway"), controller.TracesMock)
+	excel.POST("/v2/traces", middleware.RouteTag("excel-gateway"), controller.TracesMock)
 
-	router.POST("/api/eval/:sdkKey", middleware.RouteTag("excel-gateway"), controller.EvalMock)
-	router.GET("/api/version", middleware.RouteTag("excel-gateway"), controller.VersionMock)
-	router.POST("/api/analytics", middleware.RouteTag("excel-gateway"), controller.AnalyticsMock)
-
-	router.GET("/shortcuts.json", middleware.RouteTag("excel-gateway"), controller.ShortcutsMock)
+	excel.POST("/api/eval/:sdkKey", middleware.RouteTag("excel-gateway"), controller.EvalMock)
+	excel.GET("/api/version", middleware.RouteTag("excel-gateway"), controller.VersionMock)
+	excel.POST("/api/analytics", middleware.RouteTag("excel-gateway"), controller.AnalyticsMock)
 
 	// Excel relay — sanitizes requests, injects Chinese language instructions,
 	// then forwards through the standard Claude relay pipeline.
-	excelRouter := router.Group("/v1/excel")
+	excelRouter := excel.Group("/v1")
 	excelRouter.Use(middleware.RouteTag("relay"))
 	excelRouter.Use(middleware.SystemPerformanceCheck())
 	excelRouter.Use(middleware.ExcelRequestAdapter())
@@ -37,5 +41,6 @@ func SetExcelGatewayRouter(router *gin.Engine) {
 		httpRouter.POST("/messages", func(c *gin.Context) {
 			controller.Relay(c, types.RelayFormatClaude)
 		})
+		httpRouter.GET("/models", controller.ExcelListModels)
 	}
 }
