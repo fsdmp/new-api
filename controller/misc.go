@@ -68,6 +68,8 @@ func GetStatus(c *gin.Context) {
 		"footer_html":                 common.Footer,
 		"wechat_qrcode":               common.WeChatAccountQRCodeImageURL,
 		"wechat_login":                common.WeChatAuthEnabled,
+		"wechat_oauth":                system_setting.GetWeChatOAuthSettings().Enabled,
+		"wechat_oauth_appid":          system_setting.GetWeChatOAuthSettings().AppId,
 		"server_address":              system_setting.ServerAddress,
 		"turnstile_check":             common.TurnstileCheckEnabled,
 		"turnstile_site_key":          common.TurnstileSiteKey,

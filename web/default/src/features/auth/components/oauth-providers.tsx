@@ -61,6 +61,7 @@ export function OAuthProviders({
     handleDiscordLogin,
     handleOIDCLogin,
     handleLinuxDOLogin,
+    handleWeChatOAuthLogin,
     handleTelegramLogin,
     handleCustomOAuthLogin,
   } = useOAuthLogin(status)
@@ -74,6 +75,15 @@ export function OAuthProviders({
       onClick: onWeChatLogin,
       icon: <IconWeChat className='h-4 w-4' />,
       disabled: isWeChatLoading,
+    })
+  }
+
+  if (status?.wechat_oauth) {
+    providerButtons.push({
+      key: 'wechat-oauth',
+      label: t('Continue with WeChat OAuth'),
+      onClick: handleWeChatOAuthLogin,
+      icon: <IconWeChat className='h-4 w-4' />,
     })
   }
 

@@ -81,6 +81,11 @@ const oauthSchema = z.object({
   WeChatServerAddress: z.string(),
   WeChatServerToken: z.string(),
   WeChatAccountQRCodeImageURL: z.string(),
+  wechat_oauth: z.object({
+    enabled: z.boolean(),
+    app_id: z.string(),
+    app_secret: z.string(),
+  }),
 })
 
 type OAuthFormValues = z.infer<typeof oauthSchema>
@@ -110,6 +115,9 @@ type FlatOAuthDefaults = {
   WeChatServerAddress: string
   WeChatServerToken: string
   WeChatAccountQRCodeImageURL: string
+  'wechat_oauth.enabled': boolean
+  'wechat_oauth.app_id': string
+  'wechat_oauth.app_secret': string
 }
 
 const oauthTabContentClassName =
@@ -144,6 +152,11 @@ const buildFormDefaults = (defaults: FlatOAuthDefaults): OAuthFormValues => ({
   WeChatServerAddress: defaults.WeChatServerAddress ?? '',
   WeChatServerToken: defaults.WeChatServerToken ?? '',
   WeChatAccountQRCodeImageURL: defaults.WeChatAccountQRCodeImageURL ?? '',
+  wechat_oauth: {
+    enabled: defaults['wechat_oauth.enabled'],
+    app_id: defaults['wechat_oauth.app_id'] ?? '',
+    app_secret: defaults['wechat_oauth.app_secret'] ?? '',
+  },
 })
 
 const normalizeFormValues = (values: OAuthFormValues): FlatOAuthDefaults => ({
@@ -171,6 +184,9 @@ const normalizeFormValues = (values: OAuthFormValues): FlatOAuthDefaults => ({
   WeChatServerAddress: values.WeChatServerAddress,
   WeChatServerToken: values.WeChatServerToken,
   WeChatAccountQRCodeImageURL: values.WeChatAccountQRCodeImageURL,
+  'wechat_oauth.enabled': values.wechat_oauth.enabled,
+  'wechat_oauth.app_id': values.wechat_oauth.app_id,
+  'wechat_oauth.app_secret': values.wechat_oauth.app_secret,
 })
 
 type OAuthSectionProps = {
@@ -294,13 +310,14 @@ export function OAuthSection(props: OAuthSectionProps) {
             <FormDirtyIndicator isDirty={form.formState.isDirty} />
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className='grid w-full grid-cols-6'>
+              <TabsList className='grid w-full grid-cols-7'>
                 <TabsTrigger value='github'>{t('GitHub')}</TabsTrigger>
                 <TabsTrigger value='discord'>{t('Discord')}</TabsTrigger>
                 <TabsTrigger value='oidc'>{t('OIDC')}</TabsTrigger>
                 <TabsTrigger value='telegram'>{t('Telegram')}</TabsTrigger>
                 <TabsTrigger value='linuxdo'>{t('LinuxDO')}</TabsTrigger>
                 <TabsTrigger value='wechat'>{t('WeChat')}</TabsTrigger>
+                <TabsTrigger value='wechat-oauth'>{t('WeChat OAuth')}</TabsTrigger>
               </TabsList>
 
               <TabsContent value='github' className={oauthTabContentClassName}>
@@ -879,6 +896,85 @@ export function OAuthSection(props: OAuthSectionProps) {
                         <Input
                           placeholder={t('https://example.com/qr-code.png')}
                           autoComplete='off'
+                          value={field.value ?? ''}
+                          onChange={(event) =>
+                            field.onChange(event.target.value)
+                          }
+                          name={field.name}
+                          onBlur={field.onBlur}
+                          ref={field.ref}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </TabsContent>
+
+              <TabsContent
+                value='wechat-oauth'
+                className={oauthTabContentClassName}
+              >
+                <FormField
+                  control={form.control}
+                  name='wechat_oauth.enabled'
+                  render={({ field }) => (
+                    <SettingsSwitchItem>
+                      <SettingsSwitchContent>
+                        <FormLabel>{t('Enable WeChat OAuth')}</FormLabel>
+                        <FormDescription>
+                          {t(
+                            'Allow users to sign in with WeChat Open Platform OAuth'
+                          )}
+                        </FormDescription>
+                      </SettingsSwitchContent>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </SettingsSwitchItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='wechat_oauth.app_id'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('App ID')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder={t('Your WeChat Open Platform App ID')}
+                          autoComplete='off'
+                          value={field.value ?? ''}
+                          onChange={(event) =>
+                            field.onChange(event.target.value)
+                          }
+                          name={field.name}
+                          onBlur={field.onBlur}
+                          ref={field.ref}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='wechat_oauth.app_secret'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('App Secret')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type='password'
+                          placeholder={t(
+                            'Your WeChat Open Platform App Secret'
+                          )}
+                          autoComplete='new-password'
                           value={field.value ?? ''}
                           onChange={(event) =>
                             field.onChange(event.target.value)
