@@ -1,13 +1,17 @@
 package controller
 
 import (
+	"errors"
 	"net/http"
 	"runtime/debug"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting/excel_setting"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func Healthz(c *gin.Context) {
@@ -78,5 +82,123 @@ func ExcelListModels(c *gin.Context) {
 		"first_id": anthropicModels[0].ID,
 		"last_id":  anthropicModels[len(anthropicModels)-1].ID,
 		"has_more": false,
+	})
+}
+
+type excelTmpKeyRequest struct {
+	DeviceID string `json:"device_id"`
+}
+
+// CreateExcelTmpKey creates (or returns an existing) temporary API key
+// for the requesting device. No authentication is required.
+func CreateExcelTmpKey(c *gin.Context) {
+	if !excel_setting.GetExcelTmpKeyEnabled() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"success": false,
+			"message": "temporary key service is not enabled",
+		})
+		return
+	}
+
+	account := excel_setting.GetExcelTmpAccount()
+	if account == "" {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"success": false,
+			"message": "temporary key service is not configured",
+		})
+		return
+	}
+
+	var req excelTmpKeyRequest
+	if err := common.DecodeJson(c.Request.Body, &req); err != nil || req.DeviceID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "device_id is required",
+		})
+		return
+	}
+	if len(req.DeviceID) > 128 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "device_id must be at most 128 characters",
+		})
+		return
+	}
+
+	user, err := model.GetUserByUsername(account)
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"success": false,
+			"message": "failed to lookup public account",
+		})
+		return
+	}
+	if user == nil || user.Status != common.UserStatusEnabled {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"success": false,
+			"message": "public account is not available",
+		})
+		return
+	}
+
+	tokenName := "aiexceltmp-" + req.DeviceID
+	existToken, err := model.GetTokenByUserIdAndName(user.Id, tokenName)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "failed to query existing token",
+		})
+		return
+	}
+
+	if existToken != nil {
+		// Token exists and not expired — return it
+		if existToken.ExpiredTime == -1 || existToken.ExpiredTime > time.Now().Unix() {
+			c.JSON(http.StatusOK, gin.H{
+				"success":    true,
+				"key":        existToken.GetFullKey(),
+				"expires_at": existToken.ExpiredTime,
+			})
+			return
+		}
+		// Expired — soft-delete, then create new
+		_ = existToken.Delete()
+	}
+
+	expireDays := excel_setting.GetExcelTmpKeyExpireDays()
+	quota := excel_setting.GetExcelTmpKeyQuota()
+	key, err := common.GenerateKey()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "failed to generate key",
+		})
+		return
+	}
+
+	expiredTime := time.Now().Add(time.Duration(expireDays) * 24 * time.Hour).Unix()
+	token := &model.Token{
+		UserId:         user.Id,
+		Key:            key,
+		Name:           tokenName,
+		CreatedTime:    common.GetTimestamp(),
+		ExpiredTime:    expiredTime,
+		RemainQuota:    quota,
+		UnlimitedQuota: false,
+		Status:         common.TokenStatusEnabled,
+	}
+
+	if err := token.Insert(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "failed to create token",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":    true,
+		"key":        token.GetFullKey(),
+		"expires_at": expiredTime,
 	})
 }

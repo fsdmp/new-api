@@ -1072,3 +1072,20 @@ func RootUserExists() bool {
 	}
 	return true
 }
+
+// GetUserByUsername queries a user by username.
+// Returns the user if found, or nil if no matching record exists.
+func GetUserByUsername(username string) (*User, error) {
+	if username == "" {
+		return nil, errors.New("username 为空")
+	}
+	var user User
+	err := DB.Where("username = ?", username).First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &user, nil
+}

@@ -333,6 +333,20 @@ func (token *Token) IsModelLimitsEnabled() bool {
 	return token.ModelLimitsEnabled
 }
 
+// GetTokenByUserIdAndName queries a token by user_id and name.
+// Returns the token if found, or nil if no matching record exists.
+func GetTokenByUserIdAndName(userId int, name string) (*Token, error) {
+	if userId == 0 || name == "" {
+		return nil, errors.New("userId 或 name 为空")
+	}
+	var token Token
+	err := DB.Where("user_id = ? AND name = ?", userId, name).First(&token).Error
+	if err != nil {
+		return nil, err
+	}
+	return &token, nil
+}
+
 func (token *Token) GetModelLimits() []string {
 	if token.ModelLimits == "" {
 		return []string{}

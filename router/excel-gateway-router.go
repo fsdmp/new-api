@@ -13,6 +13,7 @@ func SetExcelGatewayRouter(router *gin.Engine) {
 	excel.Use(middleware.RouteTag("excel-gateway"))
 	excel.GET("/healthz", controller.Healthz)
 	excel.GET("/shortcuts.json", controller.ShortcutsMock)
+	excel.POST("/tmp-key", controller.CreateExcelTmpKey)
 
 	excel.GET("/models", controller.ExcelListModels)
 	excel.GET("/v1/models", middleware.RouteTag("excel-gateway"), controller.ExcelListModels)
