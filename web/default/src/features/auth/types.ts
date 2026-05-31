@@ -129,7 +129,6 @@ export interface SystemStatus {
     terms_of_service_enabled?: boolean
     sla_enabled?: boolean
     dpa_enabled?: boolean
-    source_code_url?: string
     oauth_register_enabled?: boolean
     register_enabled?: boolean
     password_login_enabled?: boolean
@@ -178,7 +177,6 @@ export interface SystemStatus {
   terms_of_service_enabled?: boolean
   sla_enabled?: boolean
   dpa_enabled?: boolean
-  source_code_url?: string
   oauth_register_enabled?: boolean
   register_enabled?: boolean
   password_login_enabled?: boolean

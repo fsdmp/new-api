@@ -54,6 +54,8 @@
 
 ## 📝 Project Description
 
+> This project is a secondary development based on [New API](https://github.com/Calcium-Ion/new-api) (by [QuantumNous](https://github.com/Calcium-Ion)), with additional customizations and enhancements.
+
 > [!IMPORTANT]
 > - This project is intended solely for lawful and authorized AI API gateway, organization-level authentication, multi-model management, usage analytics, cost accounting, and private deployment scenarios.
 > - Users must lawfully obtain upstream API keys, accounts, model services, and interface permissions, and must comply with upstream terms of service and applicable laws and regulations.

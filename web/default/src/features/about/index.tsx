@@ -22,7 +22,6 @@ import { useTranslation } from 'react-i18next'
 import { Markdown } from '@/components/ui/markdown'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PublicLayout } from '@/components/layout'
-import { useStatus } from '@/hooks/use-status'
 import { getAboutContent } from './api'
 
 function isValidUrl(value: string) {
@@ -40,9 +39,6 @@ function isLikelyHtml(value: string) {
 
 function EmptyAboutState() {
   const { t } = useTranslation()
-  const { status } = useStatus()
-  const currentYear = new Date().getFullYear()
-  const repoUrl = status?.source_code_url || 'https://github.com/QuantumNous/new-api'
 
   return (
     <div className='flex min-h-[60vh] items-center justify-center p-8'>
@@ -56,68 +52,6 @@ function EmptyAboutState() {
             {t(
               'The administrator has not configured any about content yet. You can set it in the settings page, supporting HTML or URL.'
             )}
-          </p>
-        </div>
-        <div className='space-y-4 text-sm'>
-          <p>
-            {t('New API Project Repository:')}{' '}
-            <a
-              href={repoUrl}
-              target='_blank'
-              rel='noopener noreferrer'
-              className='text-primary hover:underline'
-            >
-              {repoUrl}
-            </a>
-          </p>
-          <p className='text-muted-foreground'>
-            <a
-              href='https://github.com/QuantumNous/new-api'
-              target='_blank'
-              rel='noopener noreferrer'
-              className='text-primary hover:underline'
-            >
-              {t('NewAPI')}
-            </a>{' '}
-            © {currentYear}{' '}
-            <a
-              href='https://github.com/QuantumNous'
-              target='_blank'
-              rel='noopener noreferrer'
-              className='text-primary hover:underline'
-            >
-              {t('QuantumNous')}
-            </a>{' '}
-            {t('| Based on')}{' '}
-            <a
-              href='https://github.com/songquanpeng/one-api'
-              target='_blank'
-              rel='noopener noreferrer'
-              className='text-primary hover:underline'
-            >
-              {t('One API')}
-            </a>{' '}
-            © 2023{' '}
-            <a
-              href='https://github.com/songquanpeng'
-              target='_blank'
-              rel='noopener noreferrer'
-              className='text-primary hover:underline'
-            >
-              {t('JustSong')}
-            </a>
-          </p>
-          <p className='text-muted-foreground'>
-            {t('This project must be used in compliance with the')}{' '}
-            <a
-              href='https://github.com/QuantumNous/new-api/blob/main/LICENSE'
-              target='_blank'
-              rel='noopener noreferrer'
-              className='text-primary hover:underline'
-            >
-              {t('AGPL v3.0 License')}
-            </a>
-            .
           </p>
         </div>
       </div>

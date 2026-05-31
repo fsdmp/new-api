@@ -68,9 +68,6 @@ const _systemInfoSchema = z.object({
     sla: z.string().optional(),
     dpa: z.string().optional(),
   }),
-  source_code: z.object({
-    source_code_url: z.string().optional(),
-  }),
 })
 
 type SystemInfoFormValues = z.infer<typeof _systemInfoSchema>
@@ -106,11 +103,6 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
       sla: normalizeValue(defaultValues.legal?.sla),
       dpa: normalizeValue(defaultValues.legal?.dpa),
     },
-    source_code: {
-      source_code_url: normalizeValue(
-        defaultValues.source_code?.source_code_url
-      ),
-    },
   }
 
   const systemInfoSchemaWithI18n = z.object({
@@ -131,9 +123,6 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
       terms_of_service: z.string().optional(),
       sla: z.string().optional(),
       dpa: z.string().optional(),
-    }),
-    source_code: z.object({
-      source_code_url: z.string().optional(),
     }),
   })
 
@@ -474,27 +463,6 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name='source_code.source_code_url'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('Source Code URL')}</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder='https://github.com/your-org/your-repo'
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      {t(
-                        'URL to the source code repository (required for AGPL compliance). If empty, the default repository URL will be used.'
-                      )}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </SettingsFormGrid>
           </SettingsForm>
         </Form>

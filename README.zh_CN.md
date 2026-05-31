@@ -54,6 +54,8 @@
 
 ## 📝 项目说明
 
+> 本项目基于 [New API](https://github.com/Calcium-Ion/new-api)（由 [QuantumNous](https://github.com/Calcium-Ion) 开发）进行二次开发，在此基础上进行了定制化修改和功能增强。
+
 > [!IMPORTANT]
 > - 本项目仅面向合法授权的 AI API 网关、组织内部鉴权、多模型管理、用量统计、成本核算和私有化部署场景。
 > - 使用者必须合法取得上游 API Key、账号、模型服务或接口权限，并遵守上游服务条款及适用法律法规。
