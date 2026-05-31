@@ -23,9 +23,18 @@ func (e *embedFileSystem) Exists(prefix string, path string) bool {
 	return true
 }
 
+// spaRoutes are paths handled by the frontend SPA router.
+// Returning ErrNotExist for these prevents http.FileServer from issuing
+// a 301 redirect (e.g. /docs → /docs/) and instead falls through to the
+// NoRoute handler which serves the SPA index.html.
+var spaRoutes = map[string]bool{
+	"/docs":  true,
+	"/docs/": true,
+}
+
 func (e *embedFileSystem) Open(name string) (http.File, error) {
-	if name == "/" {
-		// This will make sure the index page goes to NoRouter handler,
+	if name == "/" || spaRoutes[name] {
+		// This will make sure the index page and SPA routes go to NoRoute handler,
 		// which will use the replaced index bytes with analytic codes.
 		return nil, os.ErrNotExist
 	}
