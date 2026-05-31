@@ -159,6 +159,14 @@ const paymentSchema = z.object({
   WaffoPancakeMerchantID: z.string(),
   WaffoPancakePrivateKey: z.string(),
   WaffoPancakeReturnURL: z.string(),
+  AlipayDirectEnabled: z.coerce.boolean(),
+  AlipayDirectAppId: z.string(),
+  AlipayDirectPrivateKey: z.string(),
+  AlipayDirectPublicKey: z.string(),
+  AlipayDirectSandbox: z.coerce.boolean(),
+  AlipayDirectNotifyUrl: z.string(),
+  AlipayDirectReturnUrl: z.string(),
+  AlipayDirectMinTopUp: z.coerce.number().min(1),
 })
 
 type PaymentFormValues = z.infer<typeof paymentSchema>
@@ -439,6 +447,14 @@ export function PaymentSettingsSection({
       WaffoPancakeReturnURL: removeTrailingSlash(
         values.WaffoPancakeReturnURL.trim()
       ),
+      AlipayDirectEnabled: values.AlipayDirectEnabled,
+      AlipayDirectAppId: values.AlipayDirectAppId.trim(),
+      AlipayDirectPrivateKey: values.AlipayDirectPrivateKey.trim(),
+      AlipayDirectPublicKey: values.AlipayDirectPublicKey.trim(),
+      AlipayDirectSandbox: values.AlipayDirectSandbox,
+      AlipayDirectNotifyUrl: values.AlipayDirectNotifyUrl.trim(),
+      AlipayDirectReturnUrl: values.AlipayDirectReturnUrl.trim(),
+      AlipayDirectMinTopUp: values.AlipayDirectMinTopUp,
     }
 
     const initial = {
@@ -486,6 +502,14 @@ export function PaymentSettingsSection({
       WaffoPancakeReturnURL: removeTrailingSlash(
         initialRef.current.WaffoPancakeReturnURL.trim()
       ),
+      AlipayDirectEnabled: initialRef.current.AlipayDirectEnabled,
+      AlipayDirectAppId: initialRef.current.AlipayDirectAppId.trim(),
+      AlipayDirectPrivateKey: initialRef.current.AlipayDirectPrivateKey.trim(),
+      AlipayDirectPublicKey: initialRef.current.AlipayDirectPublicKey.trim(),
+      AlipayDirectSandbox: initialRef.current.AlipayDirectSandbox,
+      AlipayDirectNotifyUrl: initialRef.current.AlipayDirectNotifyUrl.trim(),
+      AlipayDirectReturnUrl: initialRef.current.AlipayDirectReturnUrl.trim(),
+      AlipayDirectMinTopUp: initialRef.current.AlipayDirectMinTopUp,
     }
 
     const updates: Array<{ key: string; value: string | number | boolean }> = []
@@ -681,6 +705,69 @@ export function PaymentSettingsSection({
       normalizeJsonForComparison(initial.WaffoPayMethods)
     ) {
       updates.push({ key: 'WaffoPayMethods', value: sanitized.WaffoPayMethods })
+    }
+
+    // Alipay Direct
+    if (sanitized.AlipayDirectEnabled !== initial.AlipayDirectEnabled) {
+      updates.push({
+        key: 'AlipayDirectEnabled',
+        value: sanitized.AlipayDirectEnabled,
+      })
+    }
+
+    if (sanitized.AlipayDirectSandbox !== initial.AlipayDirectSandbox) {
+      updates.push({
+        key: 'AlipayDirectSandbox',
+        value: sanitized.AlipayDirectSandbox,
+      })
+    }
+
+    if (sanitized.AlipayDirectAppId !== initial.AlipayDirectAppId) {
+      updates.push({
+        key: 'AlipayDirectAppId',
+        value: sanitized.AlipayDirectAppId,
+      })
+    }
+
+    if (
+      sanitized.AlipayDirectPrivateKey &&
+      sanitized.AlipayDirectPrivateKey !== initial.AlipayDirectPrivateKey
+    ) {
+      updates.push({
+        key: 'AlipayDirectPrivateKey',
+        value: sanitized.AlipayDirectPrivateKey,
+      })
+    }
+
+    if (
+      sanitized.AlipayDirectPublicKey &&
+      sanitized.AlipayDirectPublicKey !== initial.AlipayDirectPublicKey
+    ) {
+      updates.push({
+        key: 'AlipayDirectPublicKey',
+        value: sanitized.AlipayDirectPublicKey,
+      })
+    }
+
+    if (sanitized.AlipayDirectNotifyUrl !== initial.AlipayDirectNotifyUrl) {
+      updates.push({
+        key: 'AlipayDirectNotifyUrl',
+        value: sanitized.AlipayDirectNotifyUrl,
+      })
+    }
+
+    if (sanitized.AlipayDirectReturnUrl !== initial.AlipayDirectReturnUrl) {
+      updates.push({
+        key: 'AlipayDirectReturnUrl',
+        value: sanitized.AlipayDirectReturnUrl,
+      })
+    }
+
+    if (sanitized.AlipayDirectMinTopUp !== initial.AlipayDirectMinTopUp) {
+      updates.push({
+        key: 'AlipayDirectMinTopUp',
+        value: sanitized.AlipayDirectMinTopUp,
+      })
     }
 
     const hasWaffoPancakeChanges =
@@ -1531,6 +1618,184 @@ export function PaymentSettingsSection({
             payMethods={waffoPayMethods}
             onPayMethodsChange={setWaffoPayMethods}
           />
+
+          <Separator />
+
+          {/* Alipay Direct Settings */}
+          <div>
+            <h3 className='text-lg font-medium'>{t('Alipay Direct Gateway')}</h3>
+            <p className='text-muted-foreground text-sm'>
+              {t('Configuration for Alipay official API (Page Pay) integration')}
+            </p>
+          </div>
+
+          <div className='rounded-md bg-blue-50 p-4 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-100'>
+            <p className='mb-2 font-medium'>{t('Webhook Configuration:')}</p>
+            <ul className='list-inside list-disc space-y-1'>
+              <li>
+                {t('Webhook URL:')}{' '}
+                <code className='rounded bg-blue-100 px-1 py-0.5 text-xs dark:bg-blue-900'>
+                  {'<ServerAddress>/api/alipay-direct/webhook'}
+                </code>
+              </li>
+              <li>
+                {t('Sign type:')}{' '}
+                <code className='rounded bg-blue-100 px-1 py-0.5 text-xs dark:bg-blue-900'>
+                  RSA2
+                </code>
+              </li>
+            </ul>
+          </div>
+
+          <div className='grid gap-6 md:grid-cols-3'>
+            <FormField
+              control={form.control}
+              name='AlipayDirectEnabled'
+              render={({ field }) => (
+                <SettingsSwitchItem>
+                  <SettingsSwitchContent>
+                    <FormLabel>{t('Enable Alipay Direct')}</FormLabel>
+                    <FormDescription>
+                      {t('Allow users to pay via Alipay official API')}
+                    </FormDescription>
+                  </SettingsSwitchContent>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </SettingsSwitchItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name='AlipayDirectSandbox'
+              render={({ field }) => (
+                <SettingsSwitchItem>
+                  <SettingsSwitchContent>
+                    <FormLabel>{t('Sandbox Mode')}</FormLabel>
+                    <FormDescription>
+                      {t('Use Alipay sandbox environment for testing')}
+                    </FormDescription>
+                  </SettingsSwitchContent>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </SettingsSwitchItem>
+              )}
+            />
+          </div>
+
+          <div className='grid gap-6 md:grid-cols-2'>
+            <FormField
+              control={form.control}
+              name='AlipayDirectAppId'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('App ID')}</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder={t('Alipay App ID')} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name='AlipayDirectMinTopUp'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Minimum Top Up')}</FormLabel>
+                  <FormControl>
+                    <Input type='number' min={1} placeholder='1' {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className='grid gap-6 md:grid-cols-2'>
+            <FormField
+              control={form.control}
+              name='AlipayDirectPrivateKey'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Application Private Key')}</FormLabel>
+                  <FormDescription>
+                    {t('RSA2 private key generated from Alipay Open Platform')}
+                  </FormDescription>
+                  <FormControl>
+                    <Textarea
+                      {...field}
+                      placeholder={t('RSA2 private key')}
+                      rows={3}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name='AlipayDirectPublicKey'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Alipay Public Key')}</FormLabel>
+                  <FormDescription>
+                    {t('Alipay public key for signature verification')}
+                  </FormDescription>
+                  <FormControl>
+                    <Textarea
+                      {...field}
+                      placeholder={t('Alipay public key for signature verification')}
+                      rows={3}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className='grid gap-6 md:grid-cols-2'>
+            <FormField
+              control={form.control}
+              name='AlipayDirectNotifyUrl'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Notify URL')}</FormLabel>
+                  <FormDescription>
+                    {t('Async notification URL (leave empty for auto)')}
+                  </FormDescription>
+                  <FormControl>
+                    <Input {...field} placeholder={t('Auto-generated')} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name='AlipayDirectReturnUrl'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Return URL')}</FormLabel>
+                  <FormDescription>
+                    {t('Frontend return URL (leave empty for auto)')}
+                  </FormDescription>
+                  <FormControl>
+                    <Input {...field} placeholder={t('Auto-generated')} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
         </SettingsForm>
       </Form>
     </SettingsSection>

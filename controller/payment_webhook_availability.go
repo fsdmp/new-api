@@ -108,3 +108,23 @@ func isEpayWebhookConfigured() bool {
 func isEpayWebhookEnabled() bool {
 	return isEpayTopUpEnabled()
 }
+
+func isAlipayDirectTopUpEnabled() bool {
+	if !isPaymentComplianceConfirmed() {
+		return false
+	}
+	if !setting.AlipayDirectEnabled {
+		return false
+	}
+	return isAlipayDirectWebhookConfigured()
+}
+
+func isAlipayDirectWebhookConfigured() bool {
+	return strings.TrimSpace(setting.AlipayDirectAppId) != "" &&
+		strings.TrimSpace(setting.AlipayDirectPrivateKey) != "" &&
+		strings.TrimSpace(setting.AlipayDirectPublicKey) != ""
+}
+
+func isAlipayDirectWebhookEnabled() bool {
+	return isAlipayDirectTopUpEnabled()
+}

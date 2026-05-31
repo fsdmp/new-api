@@ -39,11 +39,13 @@ import {
   useCreemPayment,
   useWaffoPayment,
   useWaffoPancakePayment,
+  useAlipayDirectPayment,
 } from './hooks'
 import {
   getDefaultPaymentType,
   getMinTopupAmount,
   isWaffoPancakePayment,
+  isAlipayDirectPayment,
 } from './lib'
 import type {
   UserWalletData,
@@ -102,6 +104,8 @@ export function Wallet(props: WalletProps) {
   const { processWaffoPayment } = useWaffoPayment()
   const { processing: pancakeProcessing, processWaffoPancakePayment } =
     useWaffoPancakePayment()
+  const { processing: alipayDirectProcessing, processAlipayDirectPayment } =
+    useAlipayDirectPayment()
 
   // Fetch and refresh user data
   const fetchUser = useCallback(async () => {
@@ -185,10 +189,14 @@ export function Wallet(props: WalletProps) {
   const handlePaymentConfirm = async () => {
     if (!selectedPaymentMethod) return
 
-    const isPancake = isWaffoPancakePayment(selectedPaymentMethod.type)
-    const success = isPancake
-      ? await processWaffoPancakePayment(topupAmount)
-      : await processPayment(topupAmount, selectedPaymentMethod.type)
+    let success: boolean
+    if (isWaffoPancakePayment(selectedPaymentMethod.type)) {
+      success = await processWaffoPancakePayment(topupAmount)
+    } else if (isAlipayDirectPayment(selectedPaymentMethod.type)) {
+      success = await processAlipayDirectPayment(topupAmount)
+    } else {
+      success = await processPayment(topupAmount, selectedPaymentMethod.type)
+    }
 
     if (success) {
       setConfirmDialogOpen(false)
@@ -303,6 +311,9 @@ export function Wallet(props: WalletProps) {
                   enableWaffoPancakeTopup={
                     topupInfo?.enable_waffo_pancake_topup
                   }
+                  enableAlipayDirectTopup={
+                    topupInfo?.enable_alipay_direct_topup
+                  }
                 />
               </div>
 
@@ -335,7 +346,7 @@ export function Wallet(props: WalletProps) {
         paymentAmount={paymentAmount}
         paymentMethod={selectedPaymentMethod}
         calculating={calculating}
-        processing={processing || pancakeProcessing}
+        processing={processing || pancakeProcessing || alipayDirectProcessing}
         discountRate={getDiscountRate()}
         usdExchangeRate={effectiveUsdExchangeRate}
       />

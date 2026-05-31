@@ -29,7 +29,7 @@ import {
   Tooltip,
 } from '@douyinfe/semi-ui';
 import { Crown, CalendarClock, Package } from 'lucide-react';
-import { SiStripe } from 'react-icons/si';
+import { SiStripe, SiAlipay } from 'react-icons/si';
 import { IconCreditCard } from '@douyinfe/semi-icons';
 import { renderQuota } from '../../../helpers';
 import { getCurrencyConfig } from '../../../helpers/render';
@@ -52,10 +52,12 @@ const SubscriptionPurchaseModal = ({
   enableOnlineTopUp = false,
   enableStripeTopUp = false,
   enableCreemTopUp = false,
+  enableAlipayDirect = false,
   purchaseLimitInfo = null,
   onPayStripe,
   onPayCreem,
   onPayEpay,
+  onPayAlipayDirect,
 }) => {
   const plan = selectedPlan?.plan;
   const totalAmount = Number(plan?.total_amount || 0);
@@ -69,7 +71,8 @@ const SubscriptionPurchaseModal = ({
   const hasStripe = enableStripeTopUp && !!plan?.stripe_price_id;
   const hasCreem = enableCreemTopUp && !!plan?.creem_product_id;
   const hasEpay = enableOnlineTopUp && epayMethods.length > 0;
-  const hasAnyPayment = hasStripe || hasCreem || hasEpay;
+  const hasAlipayDirect = enableAlipayDirect;
+  const hasAnyPayment = hasStripe || hasCreem || hasEpay || hasAlipayDirect;
   const purchaseLimit = Number(purchaseLimitInfo?.limit || 0);
   const purchaseCount = Number(purchaseLimitInfo?.count || 0);
   const purchaseLimitReached =
@@ -185,8 +188,8 @@ const SubscriptionPurchaseModal = ({
                 {t('选择支付方式')}：
               </Text>
 
-              {/* Stripe / Creem */}
-              {(hasStripe || hasCreem) && (
+              {/* Stripe / Creem / Alipay Direct */}
+              {(hasStripe || hasCreem || hasAlipayDirect) && (
                 <div className='flex gap-2'>
                   {hasStripe && (
                     <Button
@@ -210,6 +213,18 @@ const SubscriptionPurchaseModal = ({
                       disabled={purchaseLimitReached}
                     >
                       Creem
+                    </Button>
+                  )}
+                  {hasAlipayDirect && (
+                    <Button
+                      theme='light'
+                      className='flex-1'
+                      icon={<SiAlipay size={14} color='#1677FF' />}
+                      onClick={onPayAlipayDirect}
+                      loading={paying}
+                      disabled={purchaseLimitReached}
+                    >
+                      支付宝
                     </Button>
                   )}
                 </div>

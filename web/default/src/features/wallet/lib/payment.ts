@@ -87,6 +87,16 @@ export function isWaffoPancakePayment(paymentType: string): boolean {
 }
 
 /**
+ * Check if payment method is Alipay Direct
+ *
+ * Alipay Direct uses the official Alipay Page Pay API. The backend returns
+ * a payment_url that the frontend redirects to (same-tab or new tab).
+ */
+export function isAlipayDirectPayment(paymentType: string): boolean {
+  return paymentType === PAYMENT_TYPES.ALIPAY_DIRECT
+}
+
+/**
  * Get default payment type from topup info
  */
 export function getDefaultPaymentType(topupInfo: TopupInfo | null): string {

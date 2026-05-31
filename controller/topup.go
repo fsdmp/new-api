@@ -95,12 +95,34 @@ func GetTopUpInfo(c *gin.Context) {
 		}
 	}
 
+	// 如果启用了支付宝直接支付，添加到支付方法列表
+	enableAlipayDirect := isAlipayDirectTopUpEnabled()
+	if enableAlipayDirect {
+		hasAlipayDirect := false
+		for _, method := range payMethods {
+			if method["type"] == model.PaymentMethodAlipayDirect {
+				hasAlipayDirect = true
+				break
+			}
+		}
+
+		if !hasAlipayDirect {
+			payMethods = append(payMethods, map[string]string{
+				"name":      "支付宝",
+				"type":      model.PaymentMethodAlipayDirect,
+				"color":     "#1677FF",
+				"min_topup": strconv.Itoa(setting.AlipayDirectMinTopUp),
+			})
+		}
+	}
+
 	data := gin.H{
 		"enable_online_topup":              isEpayTopUpEnabled(),
 		"enable_stripe_topup":              isStripeTopUpEnabled(),
 		"enable_creem_topup":               isCreemTopUpEnabled(),
 		"enable_waffo_topup":               enableWaffo,
 		"enable_waffo_pancake_topup":       enableWaffoPancake,
+		"enable_alipay_direct_topup":       enableAlipayDirect,
 		"enable_redemption":                complianceConfirmed,
 		"payment_compliance_confirmed":     complianceConfirmed,
 		"payment_compliance_terms_version": operation_setting.CurrentComplianceTermsVersion,
@@ -116,6 +138,7 @@ func GetTopUpInfo(c *gin.Context) {
 		"stripe_min_topup":        setting.StripeMinTopUp,
 		"waffo_min_topup":         setting.WaffoMinTopUp,
 		"waffo_pancake_min_topup": setting.WaffoPancakeMinTopUp,
+		"alipay_direct_min_topup": setting.AlipayDirectMinTopUp,
 		"amount_options":          operation_setting.GetPaymentSetting().AmountOptions,
 		"discount":                operation_setting.GetPaymentSetting().AmountDiscount,
 		"topup_link":              common.TopUpLink,

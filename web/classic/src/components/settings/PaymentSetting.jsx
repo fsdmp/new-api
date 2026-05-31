@@ -24,6 +24,7 @@ import SettingsPaymentGateway from '../../pages/Setting/Payment/SettingsPaymentG
 import SettingsPaymentGatewayStripe from '../../pages/Setting/Payment/SettingsPaymentGatewayStripe';
 import SettingsPaymentGatewayCreem from '../../pages/Setting/Payment/SettingsPaymentGatewayCreem';
 import SettingsPaymentGatewayWaffo from '../../pages/Setting/Payment/SettingsPaymentGatewayWaffo';
+import SettingsPaymentGatewayAlipayDirect from '../../pages/Setting/Payment/SettingsPaymentGatewayAlipayDirect';
 import { API, showError, showSuccess, toBoolean } from '../../helpers';
 import { useTranslation } from 'react-i18next';
 import RiskAcknowledgementModal from '../common/modals/RiskAcknowledgementModal';
@@ -51,6 +52,15 @@ const PaymentSetting = () => {
     StripeUnitPrice: 8.0,
     StripeMinTopUp: 1,
     StripePromotionCodesEnabled: false,
+
+    AlipayDirectEnabled: false,
+    AlipayDirectAppId: '',
+    AlipayDirectPrivateKey: '',
+    AlipayDirectPublicKey: '',
+    AlipayDirectSandbox: false,
+    AlipayDirectNotifyUrl: '',
+    AlipayDirectReturnUrl: '',
+    AlipayDirectMinTopUp: 1,
 
     'payment_setting.compliance_confirmed': false,
     'payment_setting.compliance_terms_version': '',
@@ -160,7 +170,11 @@ const PaymentSetting = () => {
           case 'MinTopUp':
           case 'StripeUnitPrice':
           case 'StripeMinTopUp':
+          case 'AlipayDirectMinTopUp':
             newInputs[item.key] = parseFloat(item.value);
+            break;
+          case 'AlipayDirectSandbox':
+            newInputs[item.key] = toBoolean(item.value);
             break;
           default:
             if (item.key.endsWith('Enabled')) {
@@ -298,6 +312,13 @@ const PaymentSetting = () => {
               </Tabs.TabPane>
               <Tabs.TabPane tab={t('Waffo 设置')} itemKey='waffo'>
                 <SettingsPaymentGatewayWaffo
+                  options={inputs}
+                  refresh={onRefresh}
+                  hideSectionTitle
+                />
+              </Tabs.TabPane>
+              <Tabs.TabPane tab={t('支付宝官方设置')} itemKey='alipay_direct'>
+                <SettingsPaymentGatewayAlipayDirect
                   options={inputs}
                   refresh={onRefresh}
                   hideSectionTitle

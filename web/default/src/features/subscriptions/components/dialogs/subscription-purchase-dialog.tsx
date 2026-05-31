@@ -47,6 +47,7 @@ import {
   paySubscriptionEpay,
   paySubscriptionWaffoPancake,
   paySubscriptionBalance,
+  paySubscriptionAlipayDirect,
 } from '../../api'
 import { formatDuration, formatResetPeriod } from '../../lib'
 import type { PlanRecord } from '../../types'
@@ -64,6 +65,7 @@ interface Props {
   enableCreem?: boolean
   enableWaffoPancake?: boolean
   enableOnlineTopUp?: boolean
+  enableAlipayDirect?: boolean
   epayMethods?: PaymentMethod[]
   purchaseLimit?: number
   purchaseCount?: number
@@ -94,7 +96,9 @@ export function SubscriptionPurchaseDialog(props: Props) {
     props.enableWaffoPancake && !!plan.waffo_pancake_product_id
   const hasEpay =
     props.enableOnlineTopUp && (props.epayMethods || []).length > 0
-  const hasAnyPayment = hasStripe || hasCreem || hasWaffoPancake || hasEpay
+  const hasAlipayDirect = props.enableAlipayDirect
+  const hasAnyPayment =
+    hasStripe || hasCreem || hasWaffoPancake || hasEpay || hasAlipayDirect
   const selectedEpayMethodLabel =
     (props.epayMethods || []).find((m) => m.type === selectedEpayMethod)
       ?.name ||
@@ -258,6 +262,27 @@ export function SubscriptionPurchaseDialog(props: Props) {
     }
   }
 
+  const handlePayAlipayDirect = async () => {
+    setPaying(true)
+    try {
+      const res = await paySubscriptionAlipayDirect({ plan_id: plan.id })
+      if (res.message === 'success' && res.data?.payment_url) {
+        toast.success(t('Redirecting to payment page...'))
+        window.location.href = res.data.payment_url
+      } else {
+        toast.error(
+          res.message && res.message !== 'success'
+            ? res.message
+            : t('Payment request failed')
+        )
+      }
+    } catch {
+      toast.error(t('Payment request failed'))
+    } finally {
+      setPaying(false)
+    }
+  }
+
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent className='max-sm:w-[calc(100vw-1.5rem)] sm:max-w-md'>
@@ -368,7 +393,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
               <p className='text-muted-foreground text-xs'>
                 {t('Select payment method')}
               </p>
-              {(hasStripe || hasCreem || hasWaffoPancake) && (
+              {(hasStripe || hasCreem || hasWaffoPancake || hasAlipayDirect) && (
                 <div className='grid grid-cols-2 gap-2 sm:flex'>
                   {hasStripe && (
                     <Button
@@ -398,6 +423,16 @@ export function SubscriptionPurchaseDialog(props: Props) {
                       disabled={paying || limitReached}
                     >
                       Waffo Pancake
+                    </Button>
+                  )}
+                  {hasAlipayDirect && (
+                    <Button
+                      variant='outline'
+                      className='flex-1'
+                      onClick={handlePayAlipayDirect}
+                      disabled={paying || limitReached}
+                    >
+                      支付宝
                     </Button>
                   )}
                 </div>

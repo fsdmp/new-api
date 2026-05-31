@@ -341,6 +341,17 @@ export function Footer(props: FooterProps) {
               ·
             </span>
             <SourceCodeLink />
+            <span aria-hidden='true' className='text-muted-foreground/30'>
+              ·
+            </span>
+            <a
+              href='https://beian.miit.gov.cn/'
+              target='_blank'
+              rel='noopener noreferrer'
+              className='hover:text-foreground transition-colors duration-200'
+            >
+              鲁ICP备2025173891号-1
+            </a>
           </div>
           <ProjectAttribution currentYear={currentYear} />
         </div>

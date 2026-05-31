@@ -114,6 +114,14 @@ func InitOptionMap() {
 	common.OptionMap["WaffoPancakeMinTopUp"] = strconv.Itoa(setting.WaffoPancakeMinTopUp)
 	common.OptionMap["WaffoPancakeStoreID"] = setting.WaffoPancakeStoreID
 	common.OptionMap["WaffoPancakeProductID"] = setting.WaffoPancakeProductID
+	common.OptionMap["AlipayDirectEnabled"] = strconv.FormatBool(setting.AlipayDirectEnabled)
+	common.OptionMap["AlipayDirectAppId"] = setting.AlipayDirectAppId
+	common.OptionMap["AlipayDirectPrivateKey"] = setting.AlipayDirectPrivateKey
+	common.OptionMap["AlipayDirectPublicKey"] = setting.AlipayDirectPublicKey
+	common.OptionMap["AlipayDirectSandbox"] = strconv.FormatBool(setting.AlipayDirectSandbox)
+	common.OptionMap["AlipayDirectNotifyUrl"] = setting.AlipayDirectNotifyUrl
+	common.OptionMap["AlipayDirectReturnUrl"] = setting.AlipayDirectReturnUrl
+	common.OptionMap["AlipayDirectMinTopUp"] = strconv.Itoa(setting.AlipayDirectMinTopUp)
 	common.OptionMap["TopupGroupRatio"] = common.TopupGroupRatio2JSONString()
 	common.OptionMap["Chats"] = setting.Chats2JsonString()
 	common.OptionMap["AutoGroups"] = setting.AutoGroups2JsonString()
@@ -462,6 +470,22 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.WaffoPancakeUnitPrice, _ = strconv.ParseFloat(value, 64)
 	case "WaffoPancakeMinTopUp":
 		setting.WaffoPancakeMinTopUp, _ = strconv.Atoi(value)
+	case "AlipayDirectEnabled":
+		setting.AlipayDirectEnabled = value == "true"
+	case "AlipayDirectAppId":
+		setting.AlipayDirectAppId = value
+	case "AlipayDirectPrivateKey":
+		setting.AlipayDirectPrivateKey = value
+	case "AlipayDirectPublicKey":
+		setting.AlipayDirectPublicKey = value
+	case "AlipayDirectSandbox":
+		setting.AlipayDirectSandbox = value == "true"
+	case "AlipayDirectNotifyUrl":
+		setting.AlipayDirectNotifyUrl = value
+	case "AlipayDirectReturnUrl":
+		setting.AlipayDirectReturnUrl = value
+	case "AlipayDirectMinTopUp":
+		setting.AlipayDirectMinTopUp, _ = strconv.Atoi(value)
 	case "TopupGroupRatio":
 		err = common.UpdateTopupGroupRatioByJSONString(value)
 	case "GitHubClientId":

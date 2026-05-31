@@ -19,14 +19,16 @@ For commercial licensing, please contact support@quantumnous.com
 export function applyFaviconToDom(url: string) {
   if (typeof document === 'undefined' || !url) return
   try {
-    const next = new URL(url, window.location.href).href
+    // Add cache-busting query param for local paths so browsers refetch
+    const href = url.startsWith('/')
+      ? `${url}?v=${Date.now()}`
+      : url
     const existing =
       document.querySelectorAll<HTMLLinkElement>('link[rel~="icon"]')
-    if (existing.length === 1 && existing[0].href === next) return
+    existing.forEach((l) => l.remove())
     const link = document.createElement('link')
     link.rel = 'icon'
-    link.href = url
-    existing.forEach((l) => l.remove())
+    link.href = href
     document.head.appendChild(link)
   } catch {
     // Ignore malformed URLs

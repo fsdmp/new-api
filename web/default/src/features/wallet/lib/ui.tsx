@@ -142,6 +142,13 @@ export function getPaymentIcon(
           />
         </span>
       )
+    case PAYMENT_TYPES.ALIPAY_DIRECT:
+      return (
+        <SiAlipay
+          className={className}
+          style={{ color: PAYMENT_ICON_COLORS[PAYMENT_TYPES.ALIPAY_DIRECT] }}
+        />
+      )
     default:
       return <CreditCard className={className} />
   }

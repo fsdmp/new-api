@@ -77,6 +77,7 @@ const SubscriptionPlansCard = ({
   enableOnlineTopUp = false,
   enableStripeTopUp = false,
   enableCreemTopUp = false,
+  enableAlipayDirect = false,
   billingPreference,
   onChangeBillingPreference,
   activeSubscriptions = [],
@@ -155,6 +156,37 @@ const SubscriptionPlansCard = ({
         window.open(res.data.data?.checkout_url, '_blank');
         showSuccess(t('已打开支付页面'));
         closeBuy();
+      } else {
+        const errorMsg =
+          typeof res.data?.data === 'string'
+            ? res.data.data
+            : res.data?.message || t('支付失败');
+        showError(errorMsg);
+      }
+    } catch (e) {
+      showError(t('支付请求失败'));
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const payAlipayDirect = async () => {
+    if (!selectedPlan?.plan) {
+      showError(t('请先选择套餐'));
+      return;
+    }
+    setPaying(true);
+    try {
+      const res = await API.post('/api/subscription/alipay-direct/pay', {
+        plan_id: selectedPlan.plan.id,
+      });
+      if (res.data?.message === 'success') {
+        const paymentUrl = res.data.data?.payment_url || '';
+        if (paymentUrl) {
+          window.location.href = paymentUrl;
+        } else {
+          showError(t('支付请求失败'));
+        }
       } else {
         const errorMsg =
           typeof res.data?.data === 'string'
@@ -684,6 +716,8 @@ const SubscriptionPlansCard = ({
         onPayStripe={payStripe}
         onPayCreem={payCreem}
         onPayEpay={payEpay}
+        enableAlipayDirect={enableAlipayDirect}
+        onPayAlipayDirect={payAlipayDirect}
       />
     </>
   );

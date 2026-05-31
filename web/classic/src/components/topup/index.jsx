@@ -93,6 +93,9 @@ const TopUp = () => {
   const [enableWaffoPancakeTopUp, setEnableWaffoPancakeTopUp] = useState(false);
   const [waffoPancakeMinTopUp, setWaffoPancakeMinTopUp] = useState(1);
 
+  // 支付宝直接支付相关状态
+  const [enableAlipayDirectTopUp, setEnableAlipayDirectTopUp] = useState(false);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
   const [payWay, setPayWay] = useState('');
@@ -158,6 +161,9 @@ const TopUp = () => {
     if (payment === 'waffo_pancake') {
       return getWaffoPancakeAmount(value);
     }
+    if (payment === 'alipay_direct') {
+      return getAlipayDirectAmount(value);
+    }
     if (typeof payment === 'string' && payment.startsWith('waffo:')) {
       return getWaffoAmount(value);
     }
@@ -219,6 +225,11 @@ const TopUp = () => {
         showError(t('管理员未开启 Waffo Pancake 充值！'));
         return;
       }
+    } else if (payment === 'alipay_direct') {
+      if (!enableAlipayDirectTopUp) {
+        showError(t('管理员未开启支付宝充值！'));
+        return;
+      }
     } else if (payment.startsWith('waffo:')) {
       if (!enableWaffoTopUp) {
         showError(t('管理员未开启 Waffo 充值！'));
@@ -254,6 +265,17 @@ const TopUp = () => {
       setConfirmLoading(true);
       try {
         await waffoPancakeTopUp();
+      } finally {
+        setOpen(false);
+        setConfirmLoading(false);
+      }
+      return;
+    }
+
+    if (payWay === 'alipay_direct') {
+      setConfirmLoading(true);
+      try {
+        await alipayDirectTopUp();
       } finally {
         setOpen(false);
         setConfirmLoading(false);
@@ -495,6 +517,65 @@ const TopUp = () => {
     }
   };
 
+  const alipayDirectTopUp = async () => {
+    setPaymentLoading(true);
+    try {
+      const res = await API.post('/api/user/alipay-direct/pay', {
+        amount: parseInt(topUpCount),
+      });
+      if (res !== undefined) {
+        const { message, data } = res.data;
+        if (message === 'success') {
+          const paymentUrl = data?.payment_url || '';
+          if (paymentUrl && isSafeHttpCheckoutUrl(paymentUrl)) {
+            window.location.href = paymentUrl;
+          } else if (paymentUrl) {
+            showError(t('支付跳转地址不安全'));
+          } else {
+            showError(t('支付请求失败'));
+          }
+        } else {
+          const errorMsg =
+            typeof data === 'string' ? data : message || t('支付请求失败');
+          showError(errorMsg);
+        }
+      } else {
+        showError(t('支付请求失败'));
+      }
+    } catch {
+      showError(t('支付请求失败'));
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  const getAlipayDirectAmount = async (value) => {
+    if (value === undefined) {
+      value = topUpCount;
+    }
+    setAmountLoading(true);
+    try {
+      const res = await API.post('/api/user/alipay-direct/amount', {
+        amount: parseInt(value),
+      });
+      if (res !== undefined) {
+        const { message, data } = res.data;
+        if (message === 'success') {
+          setAmount(parseFloat(data));
+        } else {
+          setAmount(0);
+          Toast.error({ content: '错误：' + data, id: 'getAmount' });
+        }
+      } else {
+        showError(res);
+      }
+    } catch (err) {
+      // amount fetch failed silently
+    } finally {
+      setAmountLoading(false);
+    }
+  };
+
   const getWaffoPancakeAmount = async (value) => {
     if (value === undefined) {
       value = topUpCount;
@@ -660,6 +741,8 @@ const TopUp = () => {
           const enableWaffoTopUp = data.enable_waffo_topup || false;
           const enableWaffoPancakeTopUp =
             data.enable_waffo_pancake_topup || false;
+          const enableAlipayDirectTopUp =
+            data.enable_alipay_direct_topup || false;
           const minTopUpValue = enableOnlineTopUp
             ? data.min_topup
             : enableStripeTopUp
@@ -676,6 +759,7 @@ const TopUp = () => {
           setWaffoPayMethods(data.waffo_pay_methods || []);
           setWaffoMinTopUp(data.waffo_min_topup || 1);
           setEnableWaffoPancakeTopUp(enableWaffoPancakeTopUp);
+          setEnableAlipayDirectTopUp(enableAlipayDirectTopUp);
           setWaffoPancakeMinTopUp(data.waffo_pancake_min_topup || 1);
           setMinTopUp(minTopUpValue);
           setTopUpCount(minTopUpValue);
@@ -980,6 +1064,7 @@ const TopUp = () => {
           creemPreTopUp={creemPreTopUp}
           enableWaffoTopUp={enableWaffoTopUp}
           enableWaffoPancakeTopUp={enableWaffoPancakeTopUp}
+          enableAlipayDirectTopUp={enableAlipayDirectTopUp}
           presetAmounts={presetAmounts}
           selectedPreset={selectedPreset}
           selectPresetAmount={selectPresetAmount}

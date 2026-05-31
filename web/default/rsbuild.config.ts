@@ -89,6 +89,14 @@ export default defineConfig(({ envMode }) => {
     },
     tools: {
       rspack: {
+        module: {
+          rules: [
+            {
+              resourceQuery: /raw/,
+              type: 'asset/source',
+            },
+          ],
+        },
         plugins: [
           tanstackRouter({
             target: 'react',

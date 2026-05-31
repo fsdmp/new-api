@@ -151,6 +151,14 @@ const BILLING_SECTIONS = [
           CreemWebhookSecret: settings.CreemWebhookSecret,
           CreemTestMode: settings.CreemTestMode,
           CreemProducts: settings.CreemProducts,
+          AlipayDirectEnabled: settings.AlipayDirectEnabled ?? false,
+          AlipayDirectAppId: settings.AlipayDirectAppId ?? '',
+          AlipayDirectPrivateKey: settings.AlipayDirectPrivateKey ?? '',
+          AlipayDirectPublicKey: settings.AlipayDirectPublicKey ?? '',
+          AlipayDirectSandbox: settings.AlipayDirectSandbox ?? false,
+          AlipayDirectNotifyUrl: settings.AlipayDirectNotifyUrl ?? '',
+          AlipayDirectReturnUrl: settings.AlipayDirectReturnUrl ?? '',
+          AlipayDirectMinTopUp: settings.AlipayDirectMinTopUp ?? 1,
         }}
         waffoDefaultValues={{
           WaffoEnabled: settings.WaffoEnabled ?? false,
