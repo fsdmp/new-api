@@ -1,10 +1,6 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
+import { DocsHome } from '@/features/docs'
 
 export const Route = createFileRoute('/docs/')({
-  beforeLoad: () => {
-    throw redirect({
-      to: '/docs/$category/$slug',
-      params: { category: 'quick-start', slug: 'introduction' },
-    })
-  },
+  component: DocsHome,
 })

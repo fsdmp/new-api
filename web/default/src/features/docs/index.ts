@@ -1,5 +1,6 @@
 export { DocsLayout } from './docs-layout'
 export { DocsContent } from './docs-content'
+export { DocsHome } from './docs-home'
 export { DocsSidebar } from './docs-sidebar'
 export { DocsBreadcrumb } from './docs-breadcrumb'
 export { getDocContent } from './content-registry'

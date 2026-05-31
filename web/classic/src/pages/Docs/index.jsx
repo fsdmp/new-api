@@ -158,14 +158,9 @@ function Docs() {
   const category = pathParts[0] || '';
   const slug = pathParts[1] || '';
 
-  // Redirect if at /docs root
+  // Redirect if category given but no slug
   useEffect(() => {
-    if (!category) {
-      const first = getFirstPageForCategory('quick-start');
-      if (first) {
-        navigate(`/docs/${first.category}/${first.slug}`, { replace: true });
-      }
-    } else if (category && !slug) {
+    if (category && !slug) {
       const first = getFirstPageForCategory(category);
       if (first) {
         navigate(`/docs/${first.category}/${first.slug}`, { replace: true });
@@ -290,7 +285,46 @@ function Docs() {
           </div>
         )}
 
-        {content ? (
+        {!category ? (
+          /* Docs Home */
+          <div className='mx-auto max-w-4xl px-4 py-12 md:px-8 md:py-16'>
+            <div className='mb-10 text-center'>
+              <h1 className='text-3xl font-bold tracking-tight md:text-4xl'>
+                {t('文档')}
+              </h1>
+              <p className='mt-3 text-base text-gray-500'>
+                {t('帮助您快速上手并充分利用平台功能。')}
+              </p>
+            </div>
+            <div className='grid gap-4 sm:grid-cols-2'>
+              {docsNavCategories.map((cat) => {
+                const first = getFirstPageForCategory(cat.id);
+                if (!first) return null;
+                return (
+                  <Link
+                    key={cat.id}
+                    to={`/docs/${first.category}/${first.slug}`}
+                    className='group rounded-xl border p-5 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800'
+                  >
+                    <div className='flex items-center gap-3'>
+                      <span className='font-semibold'>{t(cat.titleKey)}</span>
+                    </div>
+                    <div className='mt-3 flex flex-wrap gap-1.5'>
+                      {cat.items.map((item) => (
+                        <span
+                          key={item.slug}
+                          className='rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                        >
+                          {t(item.titleKey)}
+                        </span>
+                      ))}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ) : content ? (
           <div className='mx-auto max-w-4xl px-4 py-6 md:px-8'>
             {/* Breadcrumb */}
             {categoryInfo && pageInfo && (

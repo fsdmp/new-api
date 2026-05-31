@@ -4,6 +4,7 @@
 .history
 upload
 *.exe
+*.dmg
 *.db
 build
 build.zip
@@ -37,3 +38,5 @@ data/
 token_estimator_test.go
 skills-lock.json
 .playwright-mcp
+web/default/public/docs/files/
+web/default/public/docs/images/
