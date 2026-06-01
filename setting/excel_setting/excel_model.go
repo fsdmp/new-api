@@ -43,8 +43,8 @@ func loadExcelModelAliases() {
 	aliasHaiku := common.GetEnvOrDefaultString("EXCEL_ALIAS_HAIKU", "claude-3-5-haiku-latest")
 
 	excelModelAliases = []ExcelModelAlias{
-		{ID: primary, DisplayName: "DeepSeekV4", TargetModel: ""},
 		{ID: fast, DisplayName: "DeepSeekV4 Flash", TargetModel: ""},
+		{ID: primary, DisplayName: "DeepSeekV4", TargetModel: ""},
 		{ID: aliasSonnet, DisplayName: "Claude Sonnet", TargetModel: primary},
 		{ID: aliasOpus, DisplayName: "Claude Opus", TargetModel: primary},
 		{ID: aliasHaiku, DisplayName: "Claude Haiku", TargetModel: fast},

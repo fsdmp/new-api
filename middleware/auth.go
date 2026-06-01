@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/excel_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 
@@ -382,6 +383,14 @@ func TokenAuth() func(c *gin.Context) {
 		if !userEnabled {
 			abortWithOpenAiMessage(c, http.StatusForbidden, common.TranslateMessage(c, i18n.MsgAuthUserBanned))
 			return
+		}
+
+		// Restrict AIExcel temp token account to /excel/ endpoints only
+		if excelTmpAccount := excel_setting.GetExcelTmpAccount(); excelTmpAccount != "" {
+			if userCache.Username == excelTmpAccount && !strings.HasPrefix(c.Request.URL.Path, "/excel/") {
+				abortWithOpenAiMessage(c, http.StatusForbidden, "该账户仅限 AI Excel 插件使用")
+				return
+			}
 		}
 
 		userCache.WriteContext(c)
