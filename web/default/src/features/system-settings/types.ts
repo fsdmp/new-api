@@ -109,6 +109,9 @@ export type AuthSettings = {
   'wechat_oauth.enabled': boolean
   'wechat_oauth.app_id': string
   'wechat_oauth.app_secret': string
+  'alipay.enabled': boolean
+  'alipay.app_id': string
+  'alipay.private_key': string
   TurnstileCheckEnabled: boolean
   TurnstileSiteKey: string
   TurnstileSecretKey: string
@@ -338,6 +341,14 @@ export type SecuritySettings = {
   'fetch_setting.ip_list': string[]
   'fetch_setting.allowed_ports': number[]
   'fetch_setting.apply_ip_filter_for_domain': boolean
+}
+
+export type ExcelSettings = {
+  'excel_tmp_key.enabled': boolean
+  'excel_tmp_key.account': string
+  'excel_tmp_key.expire_days': number
+  'excel_tmp_key.quota': number
+  'excel_version_check.minimum_versions': string
 }
 
 export type UpstreamChannel = {

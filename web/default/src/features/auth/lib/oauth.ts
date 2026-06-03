@@ -24,6 +24,7 @@ export {
   buildOIDCOAuthUrl,
   buildLinuxDOOAuthUrl,
   buildWeChatOAuthUrl,
+  buildAlipayOAuthUrl,
 } from '@/lib/oauth'
 
 // ============================================================================
@@ -94,6 +95,15 @@ export function getAvailableOAuthProviders(
     })
   }
 
+  if (status.alipay_oauth) {
+    providers.push({
+      name: 'Alipay',
+      type: 'alipay',
+      enabled: true,
+      clientId: status.alipay_oauth_appid,
+    })
+  }
+
   return providers
 }
 
@@ -109,6 +119,7 @@ export function hasOAuthProviders(status: SystemStatus | null): boolean {
     status.linuxdo_oauth ||
     status.telegram_oauth ||
     status.wechat_login ||
-    status.wechat_oauth
+    status.wechat_oauth ||
+    status.alipay_oauth
   )
 }

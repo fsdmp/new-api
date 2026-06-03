@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMemo } from 'react'
 import { Loader2, Send, Shield, UserRound, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { SiGithub, SiLinux, SiWechat } from 'react-icons/si'
+import { SiGithub, SiLinux, SiWechat, SiAlipay } from 'react-icons/si'
 import { AuthLayout } from '../auth-layout'
 
 type OAuthCallbackScreenProps = {
@@ -51,6 +51,12 @@ const providerDictionary: Record<string, ProviderMeta> = {
     label: 'WeChat',
     Icon: (props: { className?: string }) => (
       <SiWechat className={props.className} focusable='false' />
+    ),
+  },
+  alipay: {
+    label: 'Alipay',
+    Icon: (props: { className?: string }) => (
+      <SiAlipay className={props.className} focusable='false' />
     ),
   },
 }

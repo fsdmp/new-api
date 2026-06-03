@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -134,8 +133,11 @@ func UpdateOption(c *gin.Context) {
 		option.Value = common.Interface2String(option.Value.(float64))
 	case int:
 		option.Value = common.Interface2String(option.Value.(int))
+	case string:
+		// already a string, use as-is
 	default:
-		option.Value = fmt.Sprintf("%v", option.Value)
+		// nil or other unexpected types — treat as empty string
+		option.Value = ""
 	}
 	switch option.Key {
 	case "QuotaForInviter", "QuotaForInvitee":

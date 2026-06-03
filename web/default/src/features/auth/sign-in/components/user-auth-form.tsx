@@ -108,6 +108,7 @@ export function UserAuthForm({
     status?.oidc_enabled ||
     status?.linuxdo_oauth ||
     status?.telegram_oauth ||
+    status?.alipay_oauth ||
     (status?.custom_oauth_providers?.length ?? 0) > 0
   )
   const hasAlternativeLogin =

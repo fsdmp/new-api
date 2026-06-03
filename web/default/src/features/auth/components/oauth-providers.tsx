@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  IconAlipay,
   IconDiscord,
   IconGithub,
   IconLinuxDo,
@@ -62,6 +63,7 @@ export function OAuthProviders({
     handleOIDCLogin,
     handleLinuxDOLogin,
     handleWeChatOAuthLogin,
+    handleAlipayLogin,
     handleTelegramLogin,
     handleCustomOAuthLogin,
   } = useOAuthLogin(status)
@@ -84,6 +86,15 @@ export function OAuthProviders({
       label: t('Continue with WeChat OAuth'),
       onClick: handleWeChatOAuthLogin,
       icon: <IconWeChat className='h-4 w-4' />,
+    })
+  }
+
+  if (status?.alipay_oauth) {
+    providerButtons.push({
+      key: 'alipay',
+      label: t('Continue with Alipay'),
+      onClick: handleAlipayLogin,
+      icon: <IconAlipay className='h-4 w-4' />,
     })
   }
 

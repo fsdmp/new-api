@@ -1,0 +1,22 @@
+{
+  "Allow users to pay via Alipay official API": "Allow users to pay via Alipay official API",
+  "Allow users to sign in with WeChat Open Platform OAuth": "Allow users to sign in with WeChat Open Platform OAuth",
+  "Allow unauthenticated users to create temporary API keys from Excel": "Allow unauthenticated users to create temporary API keys from Excel",
+  "Continue with WeChat OAuth": "Continue with WeChat OAuth",
+  "Failed to start WeChat OAuth login": "Failed to start WeChat OAuth login",
+  "JSON map of client type to minimum version (e.g. {\"excel-plugin\":\"1.2.0\"})": "JSON map of client type to minimum version (e.g. {\"excel-plugin\":\"1.2.0\"})",
+  "Leave empty to disable the DPA requirement. Supports Markdown, HTML, or a full URL to redirect users.": "Leave empty to disable the DPA requirement. Supports Markdown, HTML, or a full URL to redirect users.",
+  "Leave empty to disable the SLA requirement. Supports Markdown, HTML, or a full URL to redirect users.": "Leave empty to disable the SLA requirement. Supports Markdown, HTML, or a full URL to redirect users.",
+  "Leave empty to disable the terms of service requirement. Supports Markdown, HTML, or a full URL to redirect users.": "Leave empty to disable the terms of service requirement. Supports Markdown, HTML, or a full URL to redirect users.",
+  "Please use WeChat's \"Scan QR Code\" feature to complete the binding process.": "Please use WeChat's \"Scan QR Code\" feature to complete the binding process.",
+  "Provide Markdown, HTML, or an external URL for the data processing agreement": "Provide Markdown, HTML, or an external URL for the data processing agreement",
+  "Provide Markdown, HTML, or an external URL for the service level agreement": "Provide Markdown, HTML, or an external URL for the service level agreement",
+  "Provide Markdown, HTML, or an external URL for the terms of service": "Provide Markdown, HTML, or an external URL for the terms of service",
+  "Quota assigned to each temporary key (in internal units)": "Quota assigned to each temporary key (in internal units)",
+  "The administrator has not configured a data processing agreement yet.": "The administrator has not configured a data processing agreement yet.",
+  "The administrator has not configured a service level agreement yet.": "The administrator has not configured a service level agreement yet.",
+  "The administrator has not configured terms of service yet.": "The administrator has not configured terms of service yet.",
+  "The requested documentation page could not be found.": "The requested documentation page could not be found.",
+  "Username of the account that owns temporary tokens": "Username of the account that owns temporary tokens",
+  "You must accept the Terms of Service before using paid features. Please review the terms before proceeding.": "You must accept the Terms of Service before using paid features. Please review the terms before proceeding."
+}

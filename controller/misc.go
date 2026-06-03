@@ -70,6 +70,8 @@ func GetStatus(c *gin.Context) {
 		"wechat_login":                common.WeChatAuthEnabled,
 		"wechat_oauth":                system_setting.GetWeChatOAuthSettings().Enabled,
 		"wechat_oauth_appid":          system_setting.GetWeChatOAuthSettings().AppId,
+		"alipay_oauth":                system_setting.GetAlipaySettings().Enabled,
+		"alipay_oauth_appid":          system_setting.GetAlipaySettings().AppId,
 		"server_address":              system_setting.ServerAddress,
 		"turnstile_check":             common.TurnstileCheckEnabled,
 		"turnstile_site_key":          common.TurnstileSiteKey,

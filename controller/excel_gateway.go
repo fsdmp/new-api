@@ -202,3 +202,49 @@ func CreateExcelTmpKey(c *gin.Context) {
 		"expires_at": expiredTime,
 	})
 }
+
+// CheckVersion checks whether the client's version meets the configured
+// minimum for the requested version type (e.g. "excel-plugin", "ai-sdk").
+//
+// Query params: version (required), type (required).
+func CheckVersion(c *gin.Context) {
+	version := c.Query("version")
+	versionType := c.Query("type")
+
+	if version == "" || versionType == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "version and type query parameters are required",
+		})
+		return
+	}
+
+	minimumVersion, found := excel_setting.GetMinimumVersion(versionType)
+	if !found {
+		c.JSON(http.StatusNotFound, gin.H{
+			"success": false,
+			"message": "unknown version type",
+		})
+		return
+	}
+
+	meetsMinimum, err := common.ParseAndCompareSemVer(version, minimumVersion)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "invalid version format",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data": gin.H{
+			"meets_minimum":   meetsMinimum,
+			"minimum_version": minimumVersion,
+			"version":         version,
+			"type":            versionType,
+		},
+	})
+}

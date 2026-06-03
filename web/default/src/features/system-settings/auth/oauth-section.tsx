@@ -86,6 +86,11 @@ const oauthSchema = z.object({
     app_id: z.string(),
     app_secret: z.string(),
   }),
+  alipay: z.object({
+    enabled: z.boolean(),
+    app_id: z.string(),
+    private_key: z.string(),
+  }),
 })
 
 type OAuthFormValues = z.infer<typeof oauthSchema>
@@ -118,6 +123,9 @@ type FlatOAuthDefaults = {
   'wechat_oauth.enabled': boolean
   'wechat_oauth.app_id': string
   'wechat_oauth.app_secret': string
+  'alipay.enabled': boolean
+  'alipay.app_id': string
+  'alipay.private_key': string
 }
 
 const oauthTabContentClassName =
@@ -157,6 +165,11 @@ const buildFormDefaults = (defaults: FlatOAuthDefaults): OAuthFormValues => ({
     app_id: defaults['wechat_oauth.app_id'] ?? '',
     app_secret: defaults['wechat_oauth.app_secret'] ?? '',
   },
+  alipay: {
+    enabled: defaults['alipay.enabled'],
+    app_id: defaults['alipay.app_id'] ?? '',
+    private_key: defaults['alipay.private_key'] ?? '',
+  },
 })
 
 const normalizeFormValues = (values: OAuthFormValues): FlatOAuthDefaults => ({
@@ -187,6 +200,9 @@ const normalizeFormValues = (values: OAuthFormValues): FlatOAuthDefaults => ({
   'wechat_oauth.enabled': values.wechat_oauth.enabled,
   'wechat_oauth.app_id': values.wechat_oauth.app_id,
   'wechat_oauth.app_secret': values.wechat_oauth.app_secret,
+  'alipay.enabled': values.alipay.enabled,
+  'alipay.app_id': values.alipay.app_id,
+  'alipay.private_key': values.alipay.private_key,
 })
 
 type OAuthSectionProps = {
@@ -310,7 +326,7 @@ export function OAuthSection(props: OAuthSectionProps) {
             <FormDirtyIndicator isDirty={form.formState.isDirty} />
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className='grid w-full grid-cols-7'>
+              <TabsList className='grid w-full grid-cols-8'>
                 <TabsTrigger value='github'>{t('GitHub')}</TabsTrigger>
                 <TabsTrigger value='discord'>{t('Discord')}</TabsTrigger>
                 <TabsTrigger value='oidc'>{t('OIDC')}</TabsTrigger>
@@ -318,6 +334,7 @@ export function OAuthSection(props: OAuthSectionProps) {
                 <TabsTrigger value='linuxdo'>{t('LinuxDO')}</TabsTrigger>
                 <TabsTrigger value='wechat'>{t('WeChat')}</TabsTrigger>
                 <TabsTrigger value='wechat-oauth'>{t('WeChat OAuth')}</TabsTrigger>
+                <TabsTrigger value='alipay'>{t('Alipay')}</TabsTrigger>
               </TabsList>
 
               <TabsContent value='github' className={oauthTabContentClassName}>
@@ -974,6 +991,78 @@ export function OAuthSection(props: OAuthSectionProps) {
                           placeholder={t(
                             'Your WeChat Open Platform App Secret'
                           )}
+                          autoComplete='new-password'
+                          value={field.value ?? ''}
+                          onChange={(event) =>
+                            field.onChange(event.target.value)
+                          }
+                          name={field.name}
+                          onBlur={field.onBlur}
+                          ref={field.ref}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </TabsContent>
+
+              <TabsContent value='alipay' className={oauthTabContentClassName}>
+                <FormField
+                  control={form.control}
+                  name='alipay.enabled'
+                  render={({ field }) => (
+                    <SettingsSwitchItem>
+                      <SettingsSwitchContent>
+                        <FormLabel>{t('Enable Alipay OAuth')}</FormLabel>
+                        <FormDescription>
+                          {t('Allow users to sign in with Alipay')}
+                        </FormDescription>
+                      </SettingsSwitchContent>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </SettingsSwitchItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='alipay.app_id'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('App ID')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder={t('Your Alipay App ID')}
+                          autoComplete='off'
+                          value={field.value ?? ''}
+                          onChange={(event) =>
+                            field.onChange(event.target.value)
+                          }
+                          name={field.name}
+                          onBlur={field.onBlur}
+                          ref={field.ref}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='alipay.private_key'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('Private Key (RSA2)')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type='password'
+                          placeholder={t('Your Alipay RSA2 Private Key')}
                           autoComplete='new-password'
                           value={field.value ?? ''}
                           onChange={(event) =>

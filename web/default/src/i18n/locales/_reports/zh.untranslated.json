@@ -1,0 +1,10 @@
+{
+  "App Secret": "App Secret",
+  "Number of days before temporary keys expire": "Number of days before temporary keys expire",
+  "Public Account": "Public Account",
+  "Quota assigned to each temporary key (in internal units)": "Quota assigned to each temporary key (in internal units)",
+  "Temporary Key": "Temporary Key",
+  "Token Quota": "Token Quota",
+  "Username of the account that owns temporary tokens": "Username of the account that owns temporary tokens",
+  "Version Check": "Version Check"
+}

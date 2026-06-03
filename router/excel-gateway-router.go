@@ -27,6 +27,7 @@ func SetExcelGatewayRouter(router *gin.Engine) {
 	excel.POST("/api/eval/:sdkKey", middleware.RouteTag("excel-gateway"), controller.EvalMock)
 	excel.GET("/api/version", middleware.RouteTag("excel-gateway"), controller.VersionMock)
 	excel.POST("/api/analytics", middleware.RouteTag("excel-gateway"), controller.AnalyticsMock)
+	excel.GET("/api/check-version", middleware.RouteTag("excel-gateway"), controller.CheckVersion)
 
 	// Excel relay — sanitizes requests, injects Chinese language instructions,
 	// then forwards through the standard Claude relay pipeline.

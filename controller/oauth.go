@@ -90,6 +90,10 @@ func HandleOAuth(c *gin.Context) {
 
 	// 5. Exchange code for token
 	code := c.Query("code")
+	// Alipay uses auth_code instead of code
+	if code == "" {
+		code = c.Query("auth_code")
+	}
 	token, err := provider.ExchangeToken(c.Request.Context(), code, c)
 	if err != nil {
 		handleOAuthError(c, err)
@@ -136,6 +140,10 @@ func handleOAuthBind(c *gin.Context, provider oauth.Provider) {
 
 	// Exchange code for token
 	code := c.Query("code")
+	// Alipay uses auth_code instead of code
+	if code == "" {
+		code = c.Query("auth_code")
+	}
 	token, err := provider.ExchangeToken(c.Request.Context(), code, c)
 	if err != nil {
 		handleOAuthError(c, err)
@@ -313,6 +321,7 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *o
 				"linux_do_id": user.LinuxDOId,
 				"wechat_id":   user.WeChatId,
 				"telegram_id": user.TelegramId,
+				"alipay_id":   user.AlipayId,
 			}).Error; err != nil {
 				return err
 			}
@@ -348,9 +357,19 @@ func handleOAuthError(c *gin.Context, err error) {
 	switch e := err.(type) {
 	case *oauth.OAuthError:
 		if e.Params != nil {
-			common.ApiErrorI18n(c, e.MsgKey, e.Params)
+			if e.RawError != "" {
+				msg := common.TranslateMessage(c, e.MsgKey, e.Params)
+				common.ApiErrorMsg(c, msg+": "+e.RawError)
+			} else {
+				common.ApiErrorI18n(c, e.MsgKey, e.Params)
+			}
 		} else {
-			common.ApiErrorI18n(c, e.MsgKey)
+			if e.RawError != "" {
+				msg := common.TranslateMessage(c, e.MsgKey)
+				common.ApiErrorMsg(c, msg+": "+e.RawError)
+			} else {
+				common.ApiErrorI18n(c, e.MsgKey)
+			}
 		}
 	case *oauth.AccessDeniedError:
 		common.ApiErrorMsg(c, e.Message)

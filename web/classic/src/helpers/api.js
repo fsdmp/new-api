@@ -324,6 +324,15 @@ export async function onWeChatOAuthClicked(app_id, options = {}) {
   );
 }
 
+export async function onAlipayOAuthClicked(app_id, options = {}) {
+  const state = await prepareOAuthState(options);
+  if (!state) return;
+  const redirect_uri = `${window.location.origin}/oauth/alipay`;
+  redirectToOAuthUrl(
+    `https://openauth.alipay.com/oauth2/publicAppAuthorize.htm?app_id=${app_id}&scope=auth_user&redirect_uri=${encodeURIComponent(redirect_uri)}&state=${state}`,
+  );
+}
+
 /**
  * Initiate custom OAuth login
  * @param {Object} provider - Custom OAuth provider config from status API

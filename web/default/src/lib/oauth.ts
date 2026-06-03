@@ -77,6 +77,14 @@ export function buildWeChatOAuthUrl(appId: string, state: string): string {
   return `https://open.weixin.qq.com/connect/qrconnect?appid=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=snsapi_login&state=${state}#wechat_redirect`
 }
 
+/**
+ * Build Alipay OAuth URL
+ */
+export function buildAlipayOAuthUrl(appId: string, state: string): string {
+  const redirectUri = `${window.location.origin}/oauth/alipay`
+  return `https://openauth.alipay.com/oauth2/publicAppAuthorize.htm?app_id=${appId}&scope=auth_user&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`
+}
+
 // ============================================================================
 // OAuth Helper Functions
 // ============================================================================
@@ -159,5 +167,16 @@ export async function handleWeChatOAuth(appId: string): Promise<void> {
   if (!state) return
 
   const url = buildWeChatOAuthUrl(appId, state)
+  window.open(url, '_blank')
+}
+
+/**
+ * Handle Alipay OAuth binding/login
+ */
+export async function handleAlipayOAuth(appId: string): Promise<void> {
+  const state = await getOAuthState()
+  if (!state) return
+
+  const url = buildAlipayOAuthUrl(appId, state)
   window.open(url, '_blank')
 }

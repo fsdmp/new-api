@@ -37,6 +37,7 @@ import {
   onLinuxDOOAuthClicked,
   onCustomOAuthClicked,
   onWeChatOAuthClicked,
+  onAlipayOAuthClicked,
   prepareCredentialRequestOptions,
   buildAssertionResult,
   isPasskeySupported,
@@ -63,6 +64,7 @@ import {
 } from '@douyinfe/semi-icons';
 import OIDCIcon from '../common/logo/OIDCIcon';
 import WeChatIcon from '../common/logo/WeChatIcon';
+import AlipayIcon from '../common/logo/AlipayIcon';
 import LinuxDoIcon from '../common/logo/LinuxDoIcon';
 import TwoFAVerification from './TwoFAVerification';
 import { useTranslation } from 'react-i18next';
@@ -97,6 +99,7 @@ const LoginForm = () => {
   const [oidcLoading, setOidcLoading] = useState(false);
   const [linuxdoLoading, setLinuxdoLoading] = useState(false);
   const [wechatOAuthLoading, setWechatOAuthLoading] = useState(false);
+  const [alipayOAuthLoading, setAlipayOAuthLoading] = useState(false);
   const [emailLoginLoading, setEmailLoginLoading] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
@@ -141,6 +144,7 @@ const LoginForm = () => {
       status.oidc_enabled ||
       status.wechat_login ||
       status.wechat_oauth ||
+      status.alipay_oauth ||
       status.linuxdo_oauth ||
       status.telegram_oauth ||
       hasCustomOAuthProviders,
@@ -368,6 +372,22 @@ const LoginForm = () => {
       });
     } finally {
       setTimeout(() => setWechatOAuthLoading(false), 3000);
+    }
+  };
+
+  // 包装的支付宝 OAuth 登录点击处理
+  const handleAlipayOAuthClick = () => {
+    if ((hasUserAgreement || hasPrivacyPolicy) && !agreedToTerms) {
+      showInfo(t('请先阅读并同意用户协议和隐私政策'));
+      return;
+    }
+    setAlipayOAuthLoading(true);
+    try {
+      onAlipayOAuthClicked(status.alipay_oauth_appid, {
+        shouldLogout: true,
+      });
+    } finally {
+      setTimeout(() => setAlipayOAuthLoading(false), 3000);
     }
   };
 
@@ -604,6 +624,26 @@ const LoginForm = () => {
                   >
                     <span className='ml-3'>
                       {t('使用 微信开放平台 OAuth 继续')}
+                    </span>
+                  </Button>
+                )}
+
+                {status.alipay_oauth && (
+                  <Button
+                    theme='outline'
+                    className='w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors'
+                    type='tertiary'
+                    icon={
+                      <Icon
+                        svg={<AlipayIcon />}
+                        style={{ color: '#1677FF' }}
+                      />
+                    }
+                    onClick={handleAlipayOAuthClick}
+                    loading={alipayOAuthLoading}
+                  >
+                    <span className='ml-3'>
+                      {t('使用 支付宝 继续')}
                     </span>
                   </Button>
                 )}

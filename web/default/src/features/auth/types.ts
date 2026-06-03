@@ -106,6 +106,8 @@ export interface SystemStatus {
     wechat_login?: boolean
     wechat_oauth?: boolean
     wechat_oauth_appid?: string
+    alipay_oauth?: boolean
+    alipay_oauth_appid?: string
     wechat_qrcode?: string
     wechat_qr_code?: string
     wechat_qrcode_image_url?: string
@@ -154,6 +156,8 @@ export interface SystemStatus {
   wechat_login?: boolean
   wechat_oauth?: boolean
   wechat_oauth_appid?: string
+  alipay_oauth?: boolean
+  alipay_oauth_appid?: string
   wechat_qrcode?: string
   wechat_qr_code?: string
   wechat_qrcode_image_url?: string
@@ -191,7 +195,7 @@ export interface SystemStatus {
 
 export interface OAuthProvider {
   name: string
-  type: 'github' | 'discord' | 'oidc' | 'linuxdo' | 'telegram' | 'wechat' | 'wechat-oauth'
+  type: 'github' | 'discord' | 'oidc' | 'linuxdo' | 'telegram' | 'wechat' | 'wechat-oauth' | 'alipay'
   enabled: boolean
   clientId?: string
   authEndpoint?: string

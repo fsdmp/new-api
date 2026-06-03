@@ -48,6 +48,7 @@ type User struct {
 	InviterId        int            `json:"inviter_id" gorm:"type:int;column:inviter_id;index"`
 	DeletedAt        gorm.DeletedAt `gorm:"index"`
 	LinuxDOId        string         `json:"linux_do_id" gorm:"column:linux_do_id;index"`
+	AlipayId         string         `json:"alipay_id" gorm:"column:alipay_id;index"`
 	Setting          string         `json:"setting" gorm:"type:text;column:setting"`
 	Remark           string         `json:"remark,omitempty" gorm:"type:varchar(255)" validate:"max=255"`
 	StripeCustomer   string         `json:"stripe_customer" gorm:"type:varchar(64);column:stripe_customer;index"`
@@ -554,6 +555,7 @@ func (user *User) ClearBinding(bindingType string) error {
 		"wechat":   "wechat_id",
 		"telegram": "telegram_id",
 		"linuxdo":  "linux_do_id",
+		"alipay":   "alipay_id",
 	}
 
 	column, ok := bindingColumnMap[bindingType]
@@ -1048,6 +1050,18 @@ func GetUsernameById(id int, fromDB bool) (username string, err error) {
 	}
 
 	return username, nil
+}
+
+func IsAlipayIdAlreadyTaken(alipayId string) bool {
+	return DB.Unscoped().Where("alipay_id = ?", alipayId).Find(&User{}).RowsAffected == 1
+}
+
+func (user *User) FillUserByAlipayId() error {
+	if user.AlipayId == "" {
+		return errors.New("alipay id is empty")
+	}
+	DB.Where(User{AlipayId: user.AlipayId}).First(user)
+	return nil
 }
 
 func IsLinuxDOIdAlreadyTaken(linuxDOId string) bool {

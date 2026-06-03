@@ -34,11 +34,11 @@
 
 **Windows：**
 
-[下载 Windows 安装包](/docs/files/aiexcel-setup-win.exe)
+[下载 Windows 安装包](https://download.jsunpack.tech/aiexcel/aiexcel-setup-win.exe)
 
 **macOS：**
 
-[下载 macOS 安装包](/docs/files/aiexcel-setup-mac.dmg)
+[下载 macOS 安装包](https://download.jsunpack.tech/aiexcel/aiexcel-setup-mac.dmg)
 
 ### 2. 安装并打开程序
 

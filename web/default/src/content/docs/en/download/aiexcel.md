@@ -34,11 +34,11 @@ Choose the installer for your operating system:
 
 **Windows:**
 
-[Download Windows Installer](/docs/files/aiexcel-setup-win.exe)
+[Download Windows Installer](https://download.jsunpack.tech/aiexcel/aiexcel-setup-win.exe)
 
 **macOS:**
 
-[Download macOS Installer](/docs/files/aiexcel-setup-mac.dmg)
+[Download macOS Installer](https://download.jsunpack.tech/aiexcel/aiexcel-setup-mac.dmg)
 
 ### 2. Install and Launch
 

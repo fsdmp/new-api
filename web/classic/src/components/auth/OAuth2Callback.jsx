@@ -88,7 +88,7 @@ const OAuth2Callback = (props) => {
     }
     hasExecuted.current = true;
 
-    const code = searchParams.get('code');
+    const code = searchParams.get('code') || searchParams.get('auth_code');
     const state = searchParams.get('state');
 
     // 参数缺失直接返回
