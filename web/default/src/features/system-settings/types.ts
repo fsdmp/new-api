@@ -349,6 +349,14 @@ export type ExcelSettings = {
   'excel_tmp_key.expire_days': number
   'excel_tmp_key.quota': number
   'excel_version_check.minimum_versions': string
+  'excel_model_list.models': string
+}
+
+export type ExcelModelEntry = {
+  id: string
+  display_name: string
+  target_model: string
+  enabled: boolean
 }
 
 export type UpstreamChannel = {

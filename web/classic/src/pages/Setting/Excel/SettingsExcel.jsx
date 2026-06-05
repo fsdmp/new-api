@@ -4,9 +4,11 @@ import {
   Button,
   Col,
   Form,
+  Input,
   InputNumber,
   Row,
   Spin,
+  Switch,
   TextArea,
 } from '@douyinfe/semi-ui';
 import {
@@ -18,6 +20,17 @@ import {
 } from '../../../helpers';
 import { useTranslation } from 'react-i18next';
 
+function parseModels(json) {
+  if (!json || json === '[]' || json === 'null') return [];
+  try {
+    const parsed = JSON.parse(json);
+    if (!Array.isArray(parsed)) return [];
+    return parsed;
+  } catch {
+    return [];
+  }
+}
+
 export default function SettingsExcel(props) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
@@ -27,14 +40,64 @@ export default function SettingsExcel(props) {
     'excel_tmp_key.expire_days': 7,
     'excel_tmp_key.quota': 500000,
     'excel_version_check.minimum_versions': '{}',
+    'excel_model_list.models': '[]',
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
+
+  // Separate state for the editable model list
+  const [models, setModels] = useState([]);
+
+  // Sync models from inputs when they change
+  useEffect(() => {
+    setModels(parseModels(inputs['excel_model_list.models']));
+  }, [inputs['excel_model_list.models']]);
 
   function handleFieldChange(fieldName) {
     return (value) => {
       setInputs((inputs) => ({ ...inputs, [fieldName]: value }));
     };
+  }
+
+  function syncModelsToInputs(newModels) {
+    setModels(newModels);
+    setInputs((prev) => ({
+      ...prev,
+      'excel_model_list.models': JSON.stringify(newModels),
+    }));
+  }
+
+  function addModel() {
+    syncModelsToInputs([
+      ...models,
+      { id: '', display_name: '', target_model: '', enabled: true },
+    ]);
+  }
+
+  function removeModel(index) {
+    const next = [...models];
+    next.splice(index, 1);
+    syncModelsToInputs(next);
+  }
+
+  function moveUp(index) {
+    if (index === 0) return;
+    const next = [...models];
+    [next[index - 1], next[index]] = [next[index], next[index - 1]];
+    syncModelsToInputs(next);
+  }
+
+  function moveDown(index) {
+    if (index === models.length - 1) return;
+    const next = [...models];
+    [next[index], next[index + 1]] = [next[index + 1], next[index]];
+    syncModelsToInputs(next);
+  }
+
+  function updateModelField(index, field, value) {
+    const next = [...models];
+    next[index] = { ...next[index], [field]: value };
+    syncModelsToInputs(next);
   }
 
   function onSubmit() {
@@ -81,10 +144,11 @@ export default function SettingsExcel(props) {
         }
       }
     }
-    setInputs({ ...inputs, ...currentInputs });
-    setInputsRow({ ...inputs, ...currentInputs });
+    const mergedInputs = { ...inputs, ...currentInputs };
+    setInputs(mergedInputs);
+    setInputsRow(mergedInputs);
     if (refForm.current) {
-      refForm.current.setValues({ ...inputs, ...currentInputs });
+      refForm.current.setValues(mergedInputs);
     }
   }, [props.options]);
 
@@ -147,6 +211,125 @@ export default function SettingsExcel(props) {
                 />
               </Col>
             </Row>
+          </Form.Section>
+
+          <Form.Section text={t('Excel 模型列表')}>
+            <Banner
+              type='info'
+              description={t(
+                '配置 Excel 模型接口返回的模型列表，支持调整顺序和启用/禁用。留空则使用环境变量默认配置。',
+              )}
+              style={{ marginBottom: 16 }}
+            />
+            {models.map((model, index) => (
+              <div
+                key={index}
+                style={{
+                  border: '1px solid var(--semi-color-border)',
+                  borderRadius: 8,
+                  padding: 16,
+                  marginBottom: 12,
+                }}
+              >
+                <Row gutter={16}>
+                  <Col xs={24} sm={12} md={7}>
+                    <div className='semi-form-field'>
+                      <label className='semi-form-field-label'>
+                        {t('模型 ID')}
+                      </label>
+                      <Input
+                        value={model.id}
+                        onChange={(val) =>
+                          updateModelField(index, 'id', val)
+                        }
+                        placeholder='e.g. claude-sonnet-4-6'
+                        showClear
+                      />
+                    </div>
+                  </Col>
+                  <Col xs={24} sm={12} md={7}>
+                    <div className='semi-form-field'>
+                      <label className='semi-form-field-label'>
+                        {t('显示名称')}
+                      </label>
+                      <Input
+                        value={model.display_name}
+                        onChange={(val) =>
+                          updateModelField(index, 'display_name', val)
+                        }
+                        placeholder='e.g. Claude Sonnet'
+                        showClear
+                      />
+                    </div>
+                  </Col>
+                  <Col xs={24} sm={12} md={7}>
+                    <div className='semi-form-field'>
+                      <label className='semi-form-field-label'>
+                        {t('目标模型')}
+                      </label>
+                      <Input
+                        value={model.target_model}
+                        onChange={(val) =>
+                          updateModelField(index, 'target_model', val)
+                        }
+                        placeholder={t('留空则使用模型 ID')}
+                        showClear
+                      />
+                    </div>
+                  </Col>
+                  <Col
+                    xs={24}
+                    sm={24}
+                    md={3}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'flex-end',
+                      gap: 4,
+                      paddingTop: 22,
+                    }}
+                  >
+                    <Switch
+                      checked={model.enabled}
+                      onChange={(val) =>
+                        updateModelField(index, 'enabled', val)
+                      }
+                      size='small'
+                      checkedText={t('启')}
+                      uncheckedText={t('禁')}
+                    />
+                    <Button
+                      size='small'
+                      disabled={index === 0}
+                      onClick={() => moveUp(index)}
+                    >
+                      ↑
+                    </Button>
+                    <Button
+                      size='small'
+                      disabled={index === models.length - 1}
+                      onClick={() => moveDown(index)}
+                    >
+                      ↓
+                    </Button>
+                    <Button
+                      size='small'
+                      type='danger'
+                      onClick={() => removeModel(index)}
+                    >
+                      ×
+                    </Button>
+                  </Col>
+                </Row>
+              </div>
+            ))}
+            <Button
+              theme='light'
+              onClick={addModel}
+              style={{ marginBottom: 12 }}
+            >
+              + {t('添加模型')}
+            </Button>
           </Form.Section>
 
           <Form.Section text={t('Excel 版本检查')}>

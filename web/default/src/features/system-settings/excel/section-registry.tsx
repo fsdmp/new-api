@@ -20,6 +20,7 @@ import type { ExcelSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 import { TmpKeySection } from './tmp-key-section'
 import { VersionCheckSection } from './version-check-section'
+import { ModelListSection } from './model-list-section'
 
 const EXCEL_SECTIONS = [
   {
@@ -32,6 +33,17 @@ const EXCEL_SECTIONS = [
           'excel_tmp_key.account': settings['excel_tmp_key.account'],
           'excel_tmp_key.expire_days': settings['excel_tmp_key.expire_days'],
           'excel_tmp_key.quota': settings['excel_tmp_key.quota'],
+        }}
+      />
+    ),
+  },
+  {
+    id: 'model-list',
+    titleKey: 'Model List',
+    build: (settings: ExcelSettings) => (
+      <ModelListSection
+        defaultValues={{
+          'excel_model_list.models': settings['excel_model_list.models'],
         }}
       />
     ),

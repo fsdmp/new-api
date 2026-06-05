@@ -30,6 +30,7 @@ const defaultExcelSettings: ExcelSettings = {
   'excel_tmp_key.expire_days': 7,
   'excel_tmp_key.quota': 500000,
   'excel_version_check.minimum_versions': '{}',
+  'excel_model_list.models': '[]',
 }
 
 export function ExcelSettings() {
