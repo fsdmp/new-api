@@ -93,6 +93,21 @@ func Login(c *gin.Context) {
 // setup session & cookies and then return user info
 func setupLogin(user *model.User, c *gin.Context) {
 	model.UpdateUserLastLoginAt(user.Id)
+
+	// Generate access token if not exists, so third-party clients can use it
+	if user.GetAccessToken() == "" {
+		randI := common.GetRandomInt(4)
+		key, err := common.GenerateRandomKey(29 + randI)
+		if err != nil {
+			common.SysLog("failed to generate access token: " + err.Error())
+		} else {
+			user.SetAccessToken(key)
+			if err := user.Update(false); err != nil {
+				common.SysLog("failed to save access token: " + err.Error())
+			}
+		}
+	}
+
 	session := sessions.Default(c)
 	session.Set("id", user.Id)
 	session.Set("username", user.Username)
@@ -114,6 +129,7 @@ func setupLogin(user *model.User, c *gin.Context) {
 			"role":         user.Role,
 			"status":       user.Status,
 			"group":        user.Group,
+			"access_token": user.GetAccessToken(),
 		},
 	})
 }
