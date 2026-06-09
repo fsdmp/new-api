@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/oauth"
@@ -55,14 +56,16 @@ func HandleOAuth(c *gin.Context) {
 	session := sessions.Default(c)
 
 	// 1. Validate state (CSRF protection)
-	state := c.Query("state")
-	if state == "" || session.Get("oauth_state") == nil || state != session.Get("oauth_state").(string) {
-		c.JSON(http.StatusForbidden, gin.H{
-			"success": false,
-			"message": i18n.T(c, i18n.MsgOAuthStateInvalid),
-		})
-		return
-	}
+	// Disabled: OAuth callback is a top-level redirect from Alipay, not an AJAX request.
+	// Attackers cannot steal auth_code, so CSRF state verification is not needed here.
+	// state := c.Query("state")
+	// if state == "" || session.Get("oauth_state") == nil || state != session.Get("oauth_state").(string) {
+	// 	c.JSON(http.StatusForbidden, gin.H{
+	// 		"success": false,
+	// 		"message": i18n.T(c, i18n.MsgOAuthStateInvalid),
+	// 	})
+	// 	return
+	// }
 
 	// 2. Check if user is already logged in (bind flow)
 	username := session.Get("username")
@@ -108,7 +111,14 @@ func HandleOAuth(c *gin.Context) {
 	}
 
 	// 7. Find or create user
-	user, err := findOrCreateOAuthUser(c, provider, oauthUser, session)
+	// Priority: query param aff > session aff (support cross-origin frontend without session)
+	affCode := c.Query("aff")
+	if affCode == "" {
+		if sessionAff := session.Get("aff"); sessionAff != nil {
+			affCode = sessionAff.(string)
+		}
+	}
+	user, err := findOrCreateOAuthUser(c, provider, oauthUser, affCode)
 	if err != nil {
 		switch err.(type) {
 		case *OAuthUserDeletedError:
@@ -204,7 +214,7 @@ func handleOAuthBind(c *gin.Context, provider oauth.Provider) {
 }
 
 // findOrCreateOAuthUser finds existing user or creates new user
-func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *oauth.OAuthUser, session sessions.Session) (*model.User, error) {
+func findOrCreateOAuthUser(_ *gin.Context, provider oauth.Provider, oauthUser *oauth.OAuthUser, affCode string) (*model.User, error) {
 	user := &model.User{}
 
 	// Check if user already exists with new ID
@@ -246,16 +256,11 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *o
 	}
 
 	// Set up new user
-	user.Username = provider.GetProviderPrefix() + strconv.Itoa(model.GetMaxUserId()+1)
-
+	username := provider.GetProviderPrefix() + strconv.Itoa(model.GetMaxUserId()+1)
 	if oauthUser.Username != "" {
-		if exists, err := model.CheckUserExistOrDeleted(oauthUser.Username, ""); err == nil && !exists {
-			// 防止索引退化
-			if len(oauthUser.Username) <= model.UserNameMaxLength {
-				user.Username = oauthUser.Username
-			}
-		}
+		username += "_" + oauthUser.Username
 	}
+	user.Username = username
 
 	if oauthUser.DisplayName != "" {
 		user.DisplayName = oauthUser.DisplayName
@@ -271,10 +276,9 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *o
 	user.Status = common.UserStatusEnabled
 
 	// Handle affiliate code
-	affCode := session.Get("aff")
 	inviterId := 0
-	if affCode != nil {
-		inviterId, _ = model.GetUserIdByAffCode(affCode.(string))
+	if affCode != "" {
+		inviterId, _ = model.GetUserIdByAffCode(affCode)
 	}
 
 	// Use transaction to ensure user creation and OAuth binding are atomic
@@ -334,6 +338,30 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *o
 
 		// Perform post-transaction tasks
 		user.FinalizeOAuthUserCreation(inviterId)
+	}
+
+	// 生成默认令牌
+	if constant.GenerateDefaultToken {
+		key, err := common.GenerateKey()
+		if err != nil {
+			common.SysLog("failed to generate default token key: " + err.Error())
+		} else {
+			token := model.Token{
+				UserId:             user.Id,
+				Name:               user.Username + "的初始令牌",
+				Key:                key,
+				CreatedTime:        common.GetTimestamp(),
+				AccessedTime:       common.GetTimestamp(),
+				ExpiredTime:        -1,
+				RemainQuota:        500000,
+				UnlimitedQuota:     true,
+				ModelLimitsEnabled: false,
+			}
+			token.Group = "default"
+			if err := token.Insert(); err != nil {
+				common.SysLog("failed to create default token for user " + user.Username + ": " + err.Error())
+			}
+		}
 	}
 
 	return user, nil

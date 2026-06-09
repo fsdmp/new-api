@@ -15,7 +15,8 @@ import (
 )
 
 type SubscriptionAlipayDirectPayRequest struct {
-	PlanId int `json:"plan_id"`
+	PlanId    int    `json:"plan_id"`
+	ReturnUrl string `json:"return_url,omitempty"`
 }
 
 func SubscriptionRequestAlipayDirect(c *gin.Context) {
@@ -30,6 +31,11 @@ func SubscriptionRequestAlipayDirect(c *gin.Context) {
 	var req SubscriptionAlipayDirectPayRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 {
 		common.ApiErrorMsg(c, "参数错误")
+		return
+	}
+
+	if req.ReturnUrl != "" && common.ValidateRedirectURL(req.ReturnUrl) != nil {
+		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "return_url 不在可信任域名列表中"})
 		return
 	}
 
@@ -95,7 +101,11 @@ func SubscriptionRequestAlipayDirect(c *gin.Context) {
 	p.TotalAmount = fmt.Sprintf("%.2f", plan.PriceAmount)
 	p.ProductCode = "FAST_INSTANT_TRADE_PAY"
 	p.NotifyURL = resolveAlipayDirectNotifyUrl()
-	p.ReturnURL = resolveAlipayDirectReturnUrl()
+	returnUrl := resolveAlipayDirectReturnUrl()
+	if req.ReturnUrl != "" {
+		returnUrl = req.ReturnUrl
+	}
+	p.ReturnURL = returnUrl
 
 	payUrl, err := client.TradePagePay(p)
 	if err != nil {

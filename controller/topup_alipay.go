@@ -20,7 +20,8 @@ import (
 )
 
 type AlipayDirectPayRequest struct {
-	Amount int64 `json:"amount"`
+	Amount    int64  `json:"amount"`
+	ReturnUrl string `json:"return_url,omitempty"`
 }
 
 func getAlipayDirectClient() (*alipay.Client, error) {
@@ -137,6 +138,12 @@ func RequestAlipayDirectPay(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "参数错误"})
 		return
 	}
+
+	if req.ReturnUrl != "" && common.ValidateRedirectURL(req.ReturnUrl) != nil {
+		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "return_url 不在可信任域名列表中"})
+		return
+	}
+
 	if req.Amount < int64(setting.AlipayDirectMinTopUp) {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": fmt.Sprintf("充值数量不能小于 %d", setting.AlipayDirectMinTopUp)})
 		return
@@ -187,7 +194,11 @@ func RequestAlipayDirectPay(c *gin.Context) {
 	p.TotalAmount = fmt.Sprintf("%.2f", payMoney)
 	p.ProductCode = "FAST_INSTANT_TRADE_PAY"
 	p.NotifyURL = resolveAlipayDirectNotifyUrl()
-	p.ReturnURL = resolveAlipayDirectReturnUrl()
+	returnUrl := resolveAlipayDirectReturnUrl()
+	if req.ReturnUrl != "" {
+		returnUrl = req.ReturnUrl
+	}
+	p.ReturnURL = returnUrl
 
 	payUrl, err := client.TradePagePay(p)
 	if err != nil {

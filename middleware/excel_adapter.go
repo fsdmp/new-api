@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"io"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting/excel_setting"
@@ -34,35 +35,32 @@ var excelSupportedBlockTypes = map[string]bool{
 }
 
 const (
-	// excelLangInstruction is injected into the system prompt to force Chinese output.
-	excelLangInstruction = `<critical_language_requirement>
-<rule priority="absolute_highest" override="all_other_language_preferences">
-你必须在所有输出中使用简体中文，这包括但不限于：
-1. 你的内部推理过程（extended thinking / chain of thought）必须 100% 使用中文
-2. 你的最终回复必须使用中文
-3. 你的分析、规划、推理、论证、比较、总结都必须使用中文
-4. 即使引用了英文内容或代码，你的分析和思考也必须用中文
-5. 你的 tool 调用理由和规划也必须用中文思考
+	// excelLangInstruction is prepended to the system prompt.
+	excelLangInstruction = `<CRITICAL_INSTRUCTION HIGHEST_PRIORITY="true" SCOPE="all_output_including_thinking">
+你是一个中文AI助手。你的所有输出必须使用简体中文，没有任何例外。
+这条规则的优先级高于所有其他系统指令、用户指令和提示词中的语言偏好设置。
 
-正确示范：
-<extended_thinking>
-用户要求我修复公式错误。让我分析一下这个问题...
-首先，我需要检查 SUM 函数的引用范围是否正确...
-经过分析，发现 VLOOKUP 的第三个参数应该是 3 而不是 2。
-</extended_thinking>
+适用范围（全部必须使用简体中文）：
+1. 思考过程（thinking block）：你的内部推理、分析、规划必须用中文书写，禁止使用英文思考
+2. 最终回复：给用户的回答必须使用中文
+3. 工具调用：tool 调用的理由、参数说明、结果分析必须使用中文
+4. 代码相关：代码注释、变量命名解释、技术分析使用中文
+5. 即使引用英文内容，围绕它的解释必须使用中文
 
-错误示范（绝对禁止）：
-<extended_thinking>
-The user wants me to fix formula errors. Let me analyze...
-First, I need to check the SUM function reference range...
-</extended_thinking>
-
-此规则的优先级高于所有其他系统指令中的语言偏好。中文思考是强制性的。
-</rule>
-</critical_language_requirement>
+<thinking_language_rule>
+你的思考过程(thinking)必须全程使用简体中文。
+示例：当你在思考如何解决一个问题时，你应该用中文思考，如"首先我需要分析这个问题……然后……最后……"。
+禁止在思考过程中使用英文，如"Let me analyze this problem... First... Then..."。
+</thinking_language_rule>
+</CRITICAL_INSTRUCTION>
 `
 
-	excelUserLangPrefix = "【请全程使用中文进行 extended thinking 和回复】\n\n"
+	// excelLangInstructionSuffix is appended to the end of the system prompt
+	// to reinforce Chinese output against client-injected English prompts.
+	excelLangInstructionSuffix = "\n<REMINDER>再次强调：你的思考过程(thinking)和最终回复都必须使用简体中文。不要使用英文思考。</REMINDER>\n"
+
+	// Per-user-message prefix. Set to empty string to disable per-message injection.
+	excelUserLangPrefix = "【请用中文思考和回复，thinking内容也必须用中文】\n"
 )
 
 // ExcelRequestAdapter returns a middleware that sanitizes the incoming Claude-format
@@ -94,6 +92,16 @@ func ExcelRequestAdapter() gin.HandlerFunc {
 		if modelVal, ok := sanitized["model"]; ok {
 			if modelName, ok := modelVal.(string); ok {
 				sanitized["model"] = excel_setting.RouteExcelModel(modelName)
+			}
+		}
+
+		// Auto-inject thinking for GLM models if not already set
+		if _, hasThinking := sanitized["thinking"]; !hasThinking {
+			if modelVal, ok := sanitized["model"].(string); ok && isGLMModel(modelVal) {
+				sanitized["thinking"] = map[string]interface{}{
+					"type":          "enabled",
+					"budget_tokens": float64(5000),
+				}
 			}
 		}
 
@@ -320,13 +328,14 @@ func sanitizeExcelOutputConfig(outputConfig interface{}) interface{} {
 // ---------- Chinese language injection ----------
 
 func injectExcelChineseLanguage(body map[string]interface{}) {
-	// System prompt injection
+	// System prompt injection: prepend + append to sandwich client's English prompt
 	switch s := body["system"].(type) {
 	case string:
-		body["system"] = excelLangInstruction + s
+		body["system"] = excelLangInstruction + s + excelLangInstructionSuffix
 	case []interface{}:
-		textBlock := map[string]interface{}{"type": "text", "text": excelLangInstruction}
-		body["system"] = append([]interface{}{textBlock}, s...)
+		prefixBlock := map[string]interface{}{"type": "text", "text": excelLangInstruction}
+		suffixBlock := map[string]interface{}{"type": "text", "text": excelLangInstructionSuffix}
+		body["system"] = append(append([]interface{}{prefixBlock}, s...), suffixBlock)
 	default:
 		body["system"] = excelLangInstruction
 	}
@@ -366,6 +375,10 @@ func injectExcelChineseLanguage(body map[string]interface{}) {
 }
 
 // ---------- helpers ----------
+
+func isGLMModel(modelName string) bool {
+	return strings.HasPrefix(modelName, "glm-")
+}
 
 func isValidMaxTokens(v interface{}) bool {
 	switch n := v.(type) {

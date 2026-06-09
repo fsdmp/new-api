@@ -16,7 +16,6 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
-	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 
 	"github.com/QuantumNous/new-api/constant"
@@ -233,9 +232,7 @@ func Register(c *gin.Context) {
 			UnlimitedQuota:     true,
 			ModelLimitsEnabled: false,
 		}
-		if setting.DefaultUseAutoGroup {
-			token.Group = "auto"
-		}
+		token.Group = "default"
 		if err := token.Insert(); err != nil {
 			common.ApiErrorI18n(c, i18n.MsgCreateDefaultTokenErr)
 			return
@@ -871,6 +868,30 @@ func CreateUser(c *gin.Context) {
 	if err := cleanUser.Insert(0); err != nil {
 		common.ApiError(c, err)
 		return
+	}
+
+	// 生成默认令牌
+	if constant.GenerateDefaultToken {
+		key, err := common.GenerateKey()
+		if err != nil {
+			common.SysLog("failed to generate default token key: " + err.Error())
+		} else {
+			token := model.Token{
+				UserId:             cleanUser.Id,
+				Name:               cleanUser.Username + "的初始令牌",
+				Key:                key,
+				CreatedTime:        common.GetTimestamp(),
+				AccessedTime:       common.GetTimestamp(),
+				ExpiredTime:        -1,
+				RemainQuota:        500000,
+				UnlimitedQuota:     true,
+				ModelLimitsEnabled: false,
+			}
+			token.Group = "default"
+			if err := token.Insert(); err != nil {
+				common.SysLog("failed to create default token for user " + cleanUser.Username + ": " + err.Error())
+			}
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
