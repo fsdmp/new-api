@@ -55,10 +55,14 @@ type alipayTokenResponse struct {
 
 type alipayUserInfoResponse struct {
 	AlipayUserInfoShareResponse struct {
-		UserId   string `json:"user_id"`
-		OpenId   string `json:"open_id"`
+		Code    string `json:"code"`
+		Msg     string `json:"msg"`
+		SubCode string `json:"sub_code"`
+		SubMsg  string `json:"sub_msg"`
+		UserId  string `json:"user_id"`
+		OpenId  string `json:"open_id"`
 		NickName string `json:"nick_name"`
-		Avatar   string `json:"avatar"`
+		Avatar  string `json:"avatar"`
 	} `json:"alipay_user_info_share_response"`
 	AlipayErrorResponse struct {
 		Code    string `json:"code"`
@@ -220,6 +224,7 @@ func (p *AlipayProvider) GetUserInfo(ctx context.Context, token *OAuthToken) (*O
 		return nil, err
 	}
 
+	// Check system-level error (error_response)
 	if userInfoResp.AlipayErrorResponse.Code != "" {
 		errMsg := userInfoResp.AlipayErrorResponse.Msg
 		if userInfoResp.AlipayErrorResponse.SubMsg != "" {
@@ -231,6 +236,19 @@ func (p *AlipayProvider) GetUserInfo(ctx context.Context, token *OAuthToken) (*O
 	}
 
 	info := userInfoResp.AlipayUserInfoShareResponse
+
+	// Check business-level error inside alipay_user_info_share_response
+	// code "10000" means success; anything else is a business error
+	if info.Code != "" && info.Code != "10000" {
+		errMsg := info.Msg
+		if info.SubMsg != "" {
+			errMsg = info.SubMsg
+		}
+		logger.LogError(ctx, fmt.Sprintf("[OAuth-Alipay] GetUserInfo business error: code=%s, msg=%s, sub_code=%s, sub_msg=%s",
+			info.Code, info.Msg, info.SubCode, info.SubMsg))
+		return nil, NewOAuthErrorWithRaw(i18n.MsgOAuthUserInfoEmpty, map[string]any{"Provider": "Alipay"}, errMsg)
+	}
+
 	userID = info.OpenId
 	if userID == "" {
 		userID = info.UserId
@@ -240,12 +258,21 @@ func (p *AlipayProvider) GetUserInfo(ctx context.Context, token *OAuthToken) (*O
 		return nil, NewOAuthError(i18n.MsgOAuthUserInfoEmpty, map[string]any{"Provider": "Alipay"})
 	}
 
-	logger.LogDebug(ctx, "[OAuth-Alipay] GetUserInfo success: user_id=%s, nick_name=%s", userID, info.NickName)
+	// Alipay may return empty nick_name due to platform restrictions;
+	// use a short suffix of the user ID as a fallback identifier.
+	nickName := info.NickName
+	if nickName == "" && len(userID) > 8 {
+		nickName = userID[len(userID)-8:]
+	} else if nickName == "" {
+		nickName = userID
+	}
+
+	logger.LogDebug(ctx, "[OAuth-Alipay] GetUserInfo success: user_id=%s, nick_name=%s", userID, nickName)
 
 	return &OAuthUser{
 		ProviderUserID: userID,
-		Username:       info.NickName,
-		DisplayName:    info.NickName,
+		Username:       nickName,
+		DisplayName:    nickName,
 	}, nil
 }
 
