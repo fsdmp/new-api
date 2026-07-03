@@ -42,7 +42,7 @@ const SearchModal = ({
     <Component {...FORM_FIELD_PROPS} {...props} />
   );
 
-  const { start_timestamp, end_timestamp, username } = inputs;
+  const { start_timestamp, end_timestamp, username, exclude_usernames } = inputs;
 
   return (
     <Modal
@@ -94,6 +94,16 @@ const SearchModal = ({
             placeholder: t('可选值'),
             name: 'username',
             onChange: (value) => handleInputChange(value, 'username'),
+          })}
+
+        {isAdminUser &&
+          createFormField(Form.Input, {
+            field: 'exclude_usernames',
+            label: t('排除用户'),
+            value: exclude_usernames,
+            placeholder: t('多个用户用逗号分隔'),
+            name: 'exclude_usernames',
+            onChange: (value) => handleInputChange(value, 'exclude_usernames'),
           })}
       </Form>
     </Modal>

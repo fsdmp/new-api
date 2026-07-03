@@ -3,6 +3,7 @@ package controller
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -14,7 +15,8 @@ func GetAllQuotaDates(c *gin.Context) {
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
 	username := c.Query("username")
-	dates, err := model.GetAllQuotaDates(startTimestamp, endTimestamp, username)
+	excludeUsernames := parseExcludeUsernames(c.Query("exclude_usernames"))
+	dates, err := model.GetAllQuotaDates(startTimestamp, endTimestamp, username, excludeUsernames)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -30,7 +32,8 @@ func GetAllQuotaDates(c *gin.Context) {
 func GetQuotaDatesByUser(c *gin.Context) {
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
-	dates, err := model.GetQuotaDataGroupByUser(startTimestamp, endTimestamp)
+	excludeUsernames := parseExcludeUsernames(c.Query("exclude_usernames"))
+	dates, err := model.GetQuotaDataGroupByUser(startTimestamp, endTimestamp, excludeUsernames)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -40,6 +43,23 @@ func GetQuotaDatesByUser(c *gin.Context) {
 		"message": "",
 		"data":    dates,
 	})
+}
+
+func parseExcludeUsernames(val string) []string {
+	if val == "" {
+		return nil
+	}
+	var result []string
+	for _, s := range strings.Split(val, ",") {
+		s = strings.TrimSpace(s)
+		if s != "" {
+			result = append(result, s)
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
 }
 
 func GetUserQuotaDates(c *gin.Context) {

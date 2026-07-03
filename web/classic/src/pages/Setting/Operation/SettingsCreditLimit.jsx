@@ -37,6 +37,7 @@ export default function SettingsCreditLimit(props) {
     QuotaForInviter: '',
     QuotaForInvitee: '',
     'quota_setting.enable_free_model_pre_consume': true,
+    'aff_quota_setting.auto_transfer_enabled': false,
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
@@ -179,6 +180,21 @@ export default function SettingsCreditLimit(props) {
                     setInputs({
                       ...inputs,
                       QuotaForInvitee: String(value),
+                    })
+                  }
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={6}>
+                <Form.Switch
+                  label={t('自动划转邀请额度')}
+                  field={'aff_quota_setting.auto_transfer_enabled'}
+                  extraText={t(
+                    '开启后，邀请人获得的邀请奖励额度将自动划转到可用余额',
+                  )}
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      'aff_quota_setting.auto_transfer_enabled': value,
                     })
                   }
                 />

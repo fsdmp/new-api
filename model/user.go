@@ -338,7 +338,14 @@ func inviteUser(inviterId int) (err error) {
 	user.AffCount++
 	user.AffQuota += common.QuotaForInviter
 	user.AffHistoryQuota += common.QuotaForInviter
-	return DB.Save(user).Error
+	if err = DB.Save(user).Error; err != nil {
+		return err
+	}
+	// 自动划转邀请额度到可用余额
+	if operation_setting.IsAutoTransferAffQuota() && user.AffQuota > 0 {
+		_ = user.TransferAffQuotaToQuota(user.AffQuota)
+	}
+	return nil
 }
 
 func (user *User) TransferAffQuotaToQuota(quota int) error {

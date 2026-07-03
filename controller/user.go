@@ -101,7 +101,7 @@ func setupLogin(user *model.User, c *gin.Context) {
 			common.SysLog("failed to generate access token: " + err.Error())
 		} else {
 			user.SetAccessToken(key)
-			if err := user.Update(false); err != nil {
+			if err := model.DB.Model(&model.User{}).Where("id = ?", user.Id).Update("access_token", key).Error; err != nil {
 				common.SysLog("failed to save access token: " + err.Error())
 			}
 		}

@@ -24,7 +24,7 @@ func providerParams(name string) map[string]any {
 func GenerateOAuthCode(c *gin.Context) {
 	session := sessions.Default(c)
 	state := common.GetRandomString(12)
-	affCode := c.Query("aff")
+	affCode := c.Query("aff_code")
 	if affCode != "" {
 		session.Set("aff", affCode)
 	}
@@ -111,8 +111,8 @@ func HandleOAuth(c *gin.Context) {
 	}
 
 	// 7. Find or create user
-	// Priority: query param aff > session aff (support cross-origin frontend without session)
-	affCode := c.Query("aff")
+	// Priority: query param aff_code > session aff (support cross-origin frontend without session)
+	affCode := c.Query("aff_code")
 	if affCode == "" {
 		if sessionAff := session.Get("aff"); sessionAff != nil {
 			affCode = sessionAff.(string)
@@ -280,6 +280,7 @@ func findOrCreateOAuthUser(_ *gin.Context, provider oauth.Provider, oauthUser *o
 	if affCode != "" {
 		inviterId, _ = model.GetUserIdByAffCode(affCode)
 	}
+	user.InviterId = inviterId
 
 	// Use transaction to ensure user creation and OAuth binding are atomic
 	if genericProvider, ok := provider.(*oauth.GenericOAuthProvider); ok {

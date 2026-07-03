@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"io"
 	"strings"
 
@@ -88,6 +89,21 @@ func ExcelRequestAdapter() gin.HandlerFunc {
 		sanitized := sanitizeExcelBody(body)
 		injectExcelChineseLanguage(sanitized)
 
+		// Model compatibility: fall back to default if model is missing or not in allowed list
+		if modelVal, ok := sanitized["model"]; !ok {
+			if defaultModel := excel_setting.GetDefaultExcelModel(); defaultModel != "" {
+				common.SysLog("excel: model not provided, falling back to default: " + defaultModel)
+				sanitized["model"] = defaultModel
+			}
+		} else if modelName, ok := modelVal.(string); ok {
+			if modelName == "" || !excel_setting.IsValidExcelModel(modelName) {
+				if defaultModel := excel_setting.GetDefaultExcelModel(); defaultModel != "" {
+					common.SysLog("excel: model '" + modelName + "' is invalid, falling back to default: " + defaultModel)
+					sanitized["model"] = defaultModel
+				}
+			}
+		}
+
 		// Route model alias to actual model name
 		if modelVal, ok := sanitized["model"]; ok {
 			if modelName, ok := modelVal.(string); ok {
@@ -115,6 +131,11 @@ func ExcelRequestAdapter() gin.HandlerFunc {
 			c.Next()
 			return
 		}
+
+		// Log the final sanitized request body forwarded upstream.
+		requestID := c.GetString(common.RequestIdKey)
+		modelName, _ := sanitized["model"].(string)
+		common.SysLog(fmt.Sprintf("[excel-relay] request_id=%s model=%s body=%s", requestID, modelName, string(newData)))
 
 		newStorage, err := common.CreateBodyStorage(newData)
 		if err != nil {

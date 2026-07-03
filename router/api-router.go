@@ -65,6 +65,10 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.POST("/waffo-pancake/webhook/:env", controller.WaffoPancakeWebhook)
 		apiRouter.POST("/alipay-direct/webhook", controller.AlipayDirectWebhook)
 
+		// Ticket exchange (plugin cross-domain login) — public, no auth
+		apiRouter.POST("/ticket", middleware.CriticalRateLimit(), controller.CreateTicket)
+		apiRouter.GET("/ticket/:ticket", middleware.CriticalRateLimit(), controller.GetTicket)
+
 		// Universal secure verification routes
 		apiRouter.POST("/verify", middleware.UserAuth(), middleware.CriticalRateLimit(), controller.UniversalVerify)
 
@@ -113,6 +117,9 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/alipay-direct/pay", middleware.CriticalRateLimit(), controller.RequestAlipayDirectPay)
 				selfRoute.POST("/aff_transfer", controller.TransferAffQuota)
 				selfRoute.PUT("/setting", controller.UpdateUserSetting)
+
+				// Ticket exchange: bind the current user's access_token to a pending ticket
+				selfRoute.POST("/ticket/bind", controller.BindTicket)
 
 				// ToS acceptance routes
 				selfRoute.GET("/tos/status", controller.GetTosStatus)

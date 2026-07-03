@@ -39,3 +39,23 @@ func RouteExcelModel(modelName string) string {
 	}
 	return modelName
 }
+
+// IsValidExcelModel checks whether a model name is in the enabled model alias list.
+func IsValidExcelModel(modelName string) bool {
+	for _, alias := range GetExcelModelAliases() {
+		if alias.ID == modelName {
+			return true
+		}
+	}
+	return false
+}
+
+// GetDefaultExcelModel returns the ID of the first enabled model alias.
+// Returns empty string if no models are configured.
+func GetDefaultExcelModel() string {
+	aliases := GetExcelModelAliases()
+	if len(aliases) == 0 {
+		return ""
+	}
+	return aliases[0].ID
+}

@@ -47,6 +47,7 @@ export const useDashboardData = (userState, userDispatch, statusState) => {
     end_timestamp: timestamp2string(new Date().getTime() / 1000 + 3600),
     channel: '',
     data_export_default_time: '',
+    exclude_usernames: '',
   });
 
   const [dataExportDefaultTime, setDataExportDefaultTime] =
@@ -160,12 +161,15 @@ export const useDashboardData = (userState, userDispatch, statusState) => {
     setLoading(true);
     try {
       let url = '';
-      const { start_timestamp, end_timestamp, username } = inputs;
+      const { start_timestamp, end_timestamp, username, exclude_usernames } = inputs;
       let localStartTimestamp = Date.parse(start_timestamp) / 1000;
       let localEndTimestamp = Date.parse(end_timestamp) / 1000;
 
       if (isAdminUser) {
         url = `/api/data/?username=${username}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&default_time=${dataExportDefaultTime}`;
+        if (exclude_usernames) {
+          url += `&exclude_usernames=${encodeURIComponent(exclude_usernames)}`;
+        }
       } else {
         url = `/api/data/self/?start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&default_time=${dataExportDefaultTime}`;
       }
@@ -216,10 +220,13 @@ export const useDashboardData = (userState, userDispatch, statusState) => {
   const loadUserQuotaData = useCallback(async () => {
     if (!isAdminUser) return [];
     try {
-      const { start_timestamp, end_timestamp } = inputs;
+      const { start_timestamp, end_timestamp, exclude_usernames } = inputs;
       const localStartTimestamp = Date.parse(start_timestamp) / 1000;
       const localEndTimestamp = Date.parse(end_timestamp) / 1000;
-      const url = `/api/data/users?start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}`;
+      let url = `/api/data/users?start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}`;
+      if (exclude_usernames) {
+        url += `&exclude_usernames=${encodeURIComponent(exclude_usernames)}`;
+      }
       const res = await API.get(url);
       const { success, message, data } = res.data;
       if (success) {
