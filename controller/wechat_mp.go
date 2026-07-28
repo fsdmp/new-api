@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
+	"unicode"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service/wechat_mp"
@@ -20,6 +23,20 @@ const mpQRExpireSeconds = 120
 
 // mpSceneIdPrefix 为生成的 sceneId 加上前缀，便于辨识并避免与其它扫码场景冲突。
 const mpSceneIdPrefix = "sl_"
+
+// mpSubscribeReply 普通关注（非扫码登录场景）时的欢迎文案。
+// 注意：扫码登录触发的 subscribe 事件 EventKey 带 "qrscene_" 前缀，
+// ExtractSceneId 会返回真实的 sceneId，不会走到使用此文案的分支。
+const mpSubscribeReply = `哈喽～很高兴被你收留啦🍵
+我是专属于你的 AI 温柔办公小助理
+平日里纠结的工作总结、策划文案、发言稿
+润色文字、梳理大纲、整理表格思绪
+大大小小的办公烦恼，都可以讲给我听～
+不想被工作裹挟、不想熬夜加班的日子
+就让我替你分担琐碎忙碌吧`
+
+// mpDefaultReply 非关注、非扫码消息（文本/图片/菜单点击等）的默认回复。
+const mpDefaultReply = "好哒，已经记下你的需求咯☕"
 
 // qrcodeRequest 前端请求生成二维码时携带的参数
 type qrcodeRequest struct {
@@ -254,11 +271,22 @@ func WeChatMpCallback(c *gin.Context) {
 		return
 	}
 
-	// 仅关注 subscribe/SCAN 事件
+	// 仅关注 subscribe/SCAN 事件用于扫码登录
 	sceneId := wechat_mp.ExtractSceneId(msg)
 	if sceneId == "" {
-		// 非扫码事件，直接返回空
-		c.String(http.StatusOK, "")
+		// 非扫码事件：根据事件类型回复对应文案
+		// —— 服务器配置启用后，公众号后台的「被关注回复」与「自动回复」会被接管失效，
+		//    这里负责把这两个核心场景补回来。
+		var reply string
+		if msg.Event == "subscribe" {
+			// 普通关注（EventKey 不带 qrscene_ 前缀）
+			reply = mpSubscribeReply
+		} else {
+			// 其他消息：文本 / 图片 / 语音 / 菜单点击（CLICK）/ 位置等
+			reply = mpDefaultReply
+		}
+		xmlReply := wechat_mp.ReplyTextXML(msg.FromUserName, msg.ToUserName, reply)
+		c.Data(http.StatusOK, "application/xml; charset=utf-8", []byte(xmlReply))
 		return
 	}
 
@@ -267,7 +295,15 @@ func WeChatMpCallback(c *gin.Context) {
 	if accessToken, err := wechat_mp.GetAccessToken(settings.AppId, settings.AppSecret); err == nil {
 		if info, err := wechat_mp.GetUserInfo(accessToken, msg.FromUserName); err == nil && info.Nickname != "" {
 			nickname = info.Nickname
+		} else if err != nil {
+			// 常见原因：订阅号未认证 → 48001 api unauthorized；没有「用户管理」接口权限
+			common.SysLog(fmt.Sprintf("wechat mp fetch nickname failed (openid=%s): %s", msg.FromUserName, err.Error()))
+		} else {
+			// 接口调通了但 nickname 为空（用户设置了空昵称）
+			common.SysLog(fmt.Sprintf("wechat mp user info returned empty nickname (openid=%s)", msg.FromUserName))
 		}
+	} else {
+		common.SysLog(fmt.Sprintf("wechat mp fetch nickname: get access_token failed: %s", err.Error()))
 	}
 
 	ok, err := wechat_mp.HandleScanEvent(sceneId, msg.FromUserName, nickname)
@@ -279,7 +315,7 @@ func WeChatMpCallback(c *gin.Context) {
 
 	var reply string
 	if ok {
-		reply = "扫码成功，请返回网页完成登录。"
+		reply = "扫码成功咯～ 跳转网页就能顺利登录"
 	} else {
 		// 重复扫码或 sceneId 已过期
 		reply = "二维码已失效，请刷新后重新扫码。"
@@ -314,7 +350,14 @@ func findOrCreateWeChatMpUser(openID, nickname, affCode string) (*model.User, er
 		return nil, fmt.Errorf("管理员关闭了新用户注册")
 	}
 
+	// 拼接规则：wechat_mp_<maxUserId+1>[_<清洗后的昵称>]
+	// 清洗：只保留字母 / 数字 / 中文，剔除 emoji、空格、标点、符号；截断到 16 rune。
+	// 昵称为空或清洗后为空（纯 emoji 用户）则不拼后缀，退化为 wechat_mp_<id>。
+	cleaned := sanitizeMpNickname(nickname)
 	user.Username = "wechat_mp_" + strconv.Itoa(model.GetMaxUserId()+1)
+	if cleaned != "" {
+		user.Username += "_" + cleaned
+	}
 	if nickname == "" {
 		nickname = "WeChat User"
 	}
@@ -328,12 +371,66 @@ func findOrCreateWeChatMpUser(openID, nickname, affCode string) (*model.User, er
 			inviterId = id
 		}
 	}
+	// 持久化到 user.InviterId，供后台「邀请人」字段展示与统计使用
+	// （Insert 内部会用 inviterId 参数发奖励，但不会回写字段，必须在此显式设置）
+	user.InviterId = inviterId
 
 	if err := user.Insert(inviterId); err != nil {
 		return nil, err
 	}
 	user.FinalizeOAuthUserCreation(inviterId)
+
+	// 生成默认令牌（与 controller/oauth.go::HandleOAuth、controller/user.go::Register 保持一致）
+	// 受 GENERATE_DEFAULT_TOKEN 环境变量控制
+	if constant.GenerateDefaultToken {
+		key, err := common.GenerateKey()
+		if err != nil {
+			common.SysLog("failed to generate default token key: " + err.Error())
+		} else {
+			token := model.Token{
+				UserId:             user.Id,
+				Name:               user.Username + "的初始令牌",
+				Key:                key,
+				CreatedTime:        common.GetTimestamp(),
+				AccessedTime:       common.GetTimestamp(),
+				ExpiredTime:        -1,
+				RemainQuota:        500000,
+				UnlimitedQuota:     true,
+				ModelLimitsEnabled: false,
+			}
+			token.Group = "default"
+			if err := token.Insert(); err != nil {
+				common.SysLog("failed to create default token for user " + user.Username + ": " + err.Error())
+			}
+		}
+	}
 	return user, nil
+}
+
+// sanitizeMpNickname 清洗微信昵称，使其可作为 username 后缀。
+// 规则：
+//   - 只保留字母、数字、中文（unicode.IsLetter / IsDigit），保留 CJK / 中文标点
+//     （中文标点 IsPunct 为 true 会被剔除）
+//   - 剔除 emoji、空格、英文标点、特殊符号
+//   - 截断到 16 个 rune（避免 username 过长）
+//   - 清洗后为空（例如纯 emoji 昵称）则返回空字符串，调用方应跳过拼接
+func sanitizeMpNickname(nickname string) string {
+	if nickname == "" {
+		return ""
+	}
+	var b strings.Builder
+	count := 0
+	for _, r := range nickname {
+		if count >= 16 {
+			break
+		}
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			b.WriteRune(r)
+			count++
+		}
+		// 其余字符（emoji / 空格 / 标点 / 符号）一律丢弃
+	}
+	return b.String()
 }
 
 // markMpFailed 把会话标记为 failed（用于登录失败时）
@@ -358,8 +455,13 @@ func pushMpLoginSuccessMessage(settings *system_setting.WeChatOAuthSettings, ope
 		return
 	}
 
-	content := fmt.Sprintf("登录成功！欢迎 %s，您已通过微信扫码安全登录。", user.DisplayName)
-	// 客服消息有 48 小时窗口限制，扫码事件本身就在窗口内，可直接发送
+	content := fmt.Sprintf(
+		"哈喽%s，登录顺利✨\n"+
+			"微信扫码安全核验完毕，欢迎落座🍵\n"+
+			"往后所有办公琐事，都尽管托付给我就好",
+		user.DisplayName,
+	)
+	// 客户消息有 48 小时窗口限制，扫码事件本身就在窗口内，可直接发送
 	if err := wechat_mp.SendCustomTextMessage(accessToken, openID, content); err != nil {
 		common.SysLog("push mp login message failed: " + err.Error())
 	}
