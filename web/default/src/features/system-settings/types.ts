@@ -109,6 +109,9 @@ export type AuthSettings = {
   'wechat_oauth.enabled': boolean
   'wechat_oauth.app_id': string
   'wechat_oauth.app_secret': string
+  'wechat_oauth.scan_login_enabled': boolean
+  'wechat_oauth.token': string
+  'wechat_oauth.encoding_aes_key': string
   'alipay.enabled': boolean
   'alipay.app_id': string
   'alipay.private_key': string

@@ -70,6 +70,11 @@ func GetStatus(c *gin.Context) {
 		"wechat_login":                common.WeChatAuthEnabled,
 		"wechat_oauth":                system_setting.GetWeChatOAuthSettings().Enabled,
 		"wechat_oauth_appid":          system_setting.GetWeChatOAuthSettings().AppId,
+		"wechat_mp_login":             system_setting.GetWeChatOAuthSettings().ScanLoginEnabled,
+		// 微信三个登录渠道对应的用户名前缀，前端可据此识别用户来源渠道
+		"wechat_login_username_prefix": "wechat_",     // 公众号验证码登录（原有）
+		"wechat_oauth_username_prefix": "wechat_",     // 微信开放平台 OAuth（原有）
+		"wechat_mp_username_prefix":    "wechat_mp_",  // 公众号扫码登录（本次新增）
 		"alipay_oauth":                system_setting.GetAlipaySettings().Enabled,
 		"alipay_oauth_appid":          system_setting.GetAlipaySettings().AppId,
 		"server_address":              system_setting.ServerAddress,

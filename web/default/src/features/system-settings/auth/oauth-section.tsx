@@ -85,6 +85,9 @@ const oauthSchema = z.object({
     enabled: z.boolean(),
     app_id: z.string(),
     app_secret: z.string(),
+    scan_login_enabled: z.boolean(),
+    token: z.string(),
+    encoding_aes_key: z.string(),
   }),
   alipay: z.object({
     enabled: z.boolean(),
@@ -123,6 +126,9 @@ type FlatOAuthDefaults = {
   'wechat_oauth.enabled': boolean
   'wechat_oauth.app_id': string
   'wechat_oauth.app_secret': string
+  'wechat_oauth.scan_login_enabled': boolean
+  'wechat_oauth.token': string
+  'wechat_oauth.encoding_aes_key': string
   'alipay.enabled': boolean
   'alipay.app_id': string
   'alipay.private_key': string
@@ -164,6 +170,9 @@ const buildFormDefaults = (defaults: FlatOAuthDefaults): OAuthFormValues => ({
     enabled: defaults['wechat_oauth.enabled'],
     app_id: defaults['wechat_oauth.app_id'] ?? '',
     app_secret: defaults['wechat_oauth.app_secret'] ?? '',
+    scan_login_enabled: defaults['wechat_oauth.scan_login_enabled'],
+    token: defaults['wechat_oauth.token'] ?? '',
+    encoding_aes_key: defaults['wechat_oauth.encoding_aes_key'] ?? '',
   },
   alipay: {
     enabled: defaults['alipay.enabled'],
@@ -200,6 +209,9 @@ const normalizeFormValues = (values: OAuthFormValues): FlatOAuthDefaults => ({
   'wechat_oauth.enabled': values.wechat_oauth.enabled,
   'wechat_oauth.app_id': values.wechat_oauth.app_id,
   'wechat_oauth.app_secret': values.wechat_oauth.app_secret,
+  'wechat_oauth.scan_login_enabled': values.wechat_oauth.scan_login_enabled,
+  'wechat_oauth.token': values.wechat_oauth.token,
+  'wechat_oauth.encoding_aes_key': values.wechat_oauth.encoding_aes_key,
   'alipay.enabled': values.alipay.enabled,
   'alipay.app_id': values.alipay.app_id,
   'alipay.private_key': values.alipay.private_key,
@@ -1001,6 +1013,103 @@ export function OAuthSection(props: OAuthSectionProps) {
                           ref={field.ref}
                         />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='wechat_oauth.scan_login_enabled'
+                  render={({ field }) => (
+                    <SettingsSwitchItem>
+                      <SettingsSwitchContent>
+                        <FormLabel>
+                          {t('Enable WeChat Scan Login')}
+                        </FormLabel>
+                        <FormDescription>
+                          {t(
+                            'Allow users to sign in by scanning a WeChat official-account QR code'
+                          )}
+                        </FormDescription>
+                      </SettingsSwitchContent>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </SettingsSwitchItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='wechat_oauth.token'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('Server Token')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type='password'
+                          placeholder={t(
+                            'Token configured in WeChat official-account server config'
+                          )}
+                          autoComplete='new-password'
+                          value={field.value ?? ''}
+                          onChange={(event) =>
+                            field.onChange(event.target.value)
+                          }
+                          name={field.name}
+                          onBlur={field.onBlur}
+                          ref={field.ref}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        {t(
+                          'Fill the same Token in WeChat backend → Develop → Basic Configuration → Server Configuration'
+                        )}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='wechat_oauth.encoding_aes_key'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {t('EncodingAESKey (optional)')}
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type='password'
+                          placeholder={t(
+                            '43-char EncodingAESKey (optional in plaintext mode)'
+                          )}
+                          autoComplete='new-password'
+                          value={field.value ?? ''}
+                          onChange={(event) =>
+                            field.onChange(event.target.value)
+                          }
+                          name={field.name}
+                          onBlur={field.onBlur}
+                          ref={field.ref}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        {t(
+                          'In WeChat backend server config: URL = {server_address}/api/mp/wechat/callback, message encryption = plaintext mode',
+                          {
+                            server_address:
+                              typeof window !== 'undefined'
+                                ? window.location.origin
+                                : '',
+                          }
+                        )}
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

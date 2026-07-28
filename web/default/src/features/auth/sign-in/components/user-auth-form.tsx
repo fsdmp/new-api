@@ -55,6 +55,7 @@ import { Turnstile } from '@/components/turnstile'
 import { login, wechatLoginByCode } from '@/features/auth/api'
 import { LegalConsent } from '@/features/auth/components/legal-consent'
 import { OAuthProviders } from '@/features/auth/components/oauth-providers'
+import { WeChatMpDialog } from '@/features/auth/components/wechat-mp-dialog'
 import { loginFormSchema } from '@/features/auth/constants'
 import { useAuthRedirect } from '@/features/auth/hooks/use-auth-redirect'
 import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
@@ -74,6 +75,7 @@ export function UserAuthForm({
   const [isPasskeyLoading, setIsPasskeyLoading] = useState(false)
   const [isWeChatDialogOpen, setIsWeChatDialogOpen] = useState(false)
   const [isWeChatSubmitting, setIsWeChatSubmitting] = useState(false)
+  const [isWeChatMpDialogOpen, setIsWeChatMpDialogOpen] = useState(false)
   const legalConsentErrorMessage = t('Please agree to the legal terms first')
   const loginFailedMessage = t('Login failed')
 
@@ -102,6 +104,9 @@ export function UserAuthForm({
     !passkeySupported ||
     (requiresLegalConsent && !agreedToLegal)
   const hasWeChatLogin = Boolean(status?.wechat_login)
+  const hasWeChatMpLogin = Boolean(
+    status?.wechat_mp_login ?? status?.data?.wechat_mp_login
+  )
   const hasOAuthLogin = Boolean(
     status?.github_oauth ||
     status?.discord_oauth ||
@@ -109,10 +114,11 @@ export function UserAuthForm({
     status?.linuxdo_oauth ||
     status?.telegram_oauth ||
     status?.alipay_oauth ||
+    status?.wechat_oauth ||
     (status?.custom_oauth_providers?.length ?? 0) > 0
   )
   const hasAlternativeLogin =
-    passkeyLoginEnabled || hasWeChatLogin || hasOAuthLogin
+    passkeyLoginEnabled || hasWeChatLogin || hasWeChatMpLogin || hasOAuthLogin
 
   useEffect(() => {
     if (requiresLegalConsent) {
@@ -189,6 +195,15 @@ export function UserAuthForm({
     }
 
     setIsWeChatDialogOpen(true)
+  }
+
+  const handleOpenWeChatMpDialog = () => {
+    if (requiresLegalConsent && !agreedToLegal) {
+      toast.error(legalConsentErrorMessage)
+      return
+    }
+
+    setIsWeChatMpDialogOpen(true)
   }
 
   const handleWeChatDialogChange = (open: boolean) => {
@@ -322,6 +337,9 @@ export function UserAuthForm({
         disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
         onWeChatLogin={hasWeChatLogin ? handleOpenWeChatDialog : undefined}
         isWeChatLoading={isWeChatSubmitting}
+        onWeChatMpLogin={
+          hasWeChatMpLogin ? handleOpenWeChatMpDialog : undefined
+        }
       />
     </>
   )
@@ -478,6 +496,14 @@ export function UserAuthForm({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      )}
+
+      {hasWeChatMpLogin && (
+        <WeChatMpDialog
+          open={isWeChatMpDialogOpen}
+          onOpenChange={setIsWeChatMpDialogOpen}
+          redirectTo={redirectTo}
+        />
       )}
     </Form>
   )

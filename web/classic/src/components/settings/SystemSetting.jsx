@@ -80,6 +80,9 @@ const SystemSetting = () => {
     'wechat_oauth.enabled': '',
     'wechat_oauth.app_id': '',
     'wechat_oauth.app_secret': '',
+    'wechat_oauth.scan_login_enabled': '',
+    'wechat_oauth.token': '',
+    'wechat_oauth.encoding_aes_key': '',
     'alipay.enabled': '',
     'alipay.app_id': '',
     'alipay.private_key': '',
@@ -196,6 +199,7 @@ const SystemSetting = () => {
           case 'passkey.enabled':
           case 'passkey.allow_insecure_origin':
           case 'wechat_oauth.enabled':
+          case 'wechat_oauth.scan_login_enabled':
           case 'alipay.enabled':
           case 'WorkerAllowHttpImageRequestEnabled':
             item.value = toBoolean(item.value);
@@ -532,6 +536,34 @@ const SystemSetting = () => {
       options.push({
         key: 'wechat_oauth.app_secret',
         value: inputs['wechat_oauth.app_secret'],
+      });
+    }
+    if (
+      originInputs['wechat_oauth.scan_login_enabled'] !==
+      inputs['wechat_oauth.scan_login_enabled']
+    ) {
+      options.push({
+        key: 'wechat_oauth.scan_login_enabled',
+        value: inputs['wechat_oauth.scan_login_enabled'],
+      });
+    }
+    if (
+      originInputs['wechat_oauth.token'] !== inputs['wechat_oauth.token'] &&
+      inputs['wechat_oauth.token'] !== ''
+    ) {
+      options.push({
+        key: 'wechat_oauth.token',
+        value: inputs['wechat_oauth.token'],
+      });
+    }
+    if (
+      originInputs['wechat_oauth.encoding_aes_key'] !==
+        inputs['wechat_oauth.encoding_aes_key'] &&
+      inputs['wechat_oauth.encoding_aes_key'] !== ''
+    ) {
+      options.push({
+        key: 'wechat_oauth.encoding_aes_key',
+        value: inputs['wechat_oauth.encoding_aes_key'],
       });
     }
 
@@ -1688,6 +1720,46 @@ const SystemSetting = () => {
                         label={t('微信开放平台 App Secret')}
                         type='password'
                         placeholder={t('敏感信息不会发送到前端显示')}
+                      />
+                    </Col>
+                  </Row>
+                  <Row>
+                    <Col span={24}>
+                      <Text>
+                        {t(
+                          '以下为「公众号扫码登录」所需配置。完成后请在公众号后台 → 开发 → 基本配置 → 服务器配置中填写：URL = {server_address}/api/mp/wechat/callback，Token 与下方一致，EncodingAESKey 与下方一致（明文模式可不填），消息加解密方式选择明文模式。',
+                          {
+                            server_address: inputs.ServerAddress || t('网站域名'),
+                          }
+                        )}
+                      </Text>
+                    </Col>
+                  </Row>
+                  <Row
+                    gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
+                  >
+                    <Col xs={24} sm={24} md={24} lg={24} xl={24}>
+                      <Form.Switch
+                        field="['wechat_oauth.scan_login_enabled']"
+                        label={t('启用微信扫码登录')}
+                        checkedText={t('开')}
+                        uncheckedText={t('关')}
+                      />
+                    </Col>
+                    <Col xs={24} sm={24} md={12} lg={12} xl={12}>
+                      <Form.Input
+                        field="['wechat_oauth.token']"
+                        label={t('公众号服务器 Token')}
+                        type='password'
+                        placeholder={t('在公众号后台服务器配置中填写的 Token')}
+                      />
+                    </Col>
+                    <Col xs={24} sm={24} md={12} lg={12} xl={12}>
+                      <Form.Input
+                        field="['wechat_oauth.encoding_aes_key']"
+                        label={t('EncodingAESKey（可选，明文模式可不填）')}
+                        type='password'
+                        placeholder={t('43 字符的 EncodingAESKey')}
                       />
                     </Col>
                   </Row>

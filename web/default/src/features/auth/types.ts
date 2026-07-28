@@ -106,6 +106,10 @@ export interface SystemStatus {
     wechat_login?: boolean
     wechat_oauth?: boolean
     wechat_oauth_appid?: string
+    wechat_mp_login?: boolean
+    wechat_login_username_prefix?: string
+    wechat_oauth_username_prefix?: string
+    wechat_mp_username_prefix?: string
     alipay_oauth?: boolean
     alipay_oauth_appid?: string
     wechat_qrcode?: string
@@ -156,6 +160,7 @@ export interface SystemStatus {
   wechat_login?: boolean
   wechat_oauth?: boolean
   wechat_oauth_appid?: string
+  wechat_scan_login?: boolean
   alipay_oauth?: boolean
   alipay_oauth_appid?: string
   wechat_qrcode?: string

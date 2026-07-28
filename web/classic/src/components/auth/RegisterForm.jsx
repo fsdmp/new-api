@@ -63,6 +63,7 @@ import LinuxDoIcon from '../common/logo/LinuxDoIcon';
 import WeChatIcon from '../common/logo/WeChatIcon';
 import AlipayIcon from '../common/logo/AlipayIcon';
 import TelegramLoginButton from 'react-telegram-login/src';
+import WeChatMpLoginModal from './WeChatMpLoginModal';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import { useTranslation } from 'react-i18next';
@@ -91,6 +92,7 @@ const RegisterForm = () => {
   const [turnstileSiteKey, setTurnstileSiteKey] = useState('');
   const [turnstileToken, setTurnstileToken] = useState('');
   const [showWeChatLoginModal, setShowWeChatLoginModal] = useState(false);
+  const [showWeChatMpLoginModal, setShowWeChatMpLoginModal] = useState(false);
   const [showEmailRegister, setShowEmailRegister] = useState(false);
   const [wechatLoading, setWechatLoading] = useState(false);
   const [githubLoading, setGithubLoading] = useState(false);
@@ -142,6 +144,7 @@ const RegisterForm = () => {
       status.oidc_enabled ||
       status.wechat_login ||
       status.wechat_oauth ||
+      status.wechat_mp_login ||
       status.alipay_oauth ||
       status.linuxdo_oauth ||
       status.telegram_oauth ||
@@ -349,6 +352,24 @@ const RegisterForm = () => {
     }
   };
 
+  const onWeChatMpLoginClicked = () => {
+    if ((hasUserAgreement || hasPrivacyPolicy) && !agreedToTerms) {
+      showInfo(t('请先阅读并同意用户协议和隐私政策'));
+      return;
+    }
+    setShowWeChatMpLoginModal(true);
+  };
+
+  const handleWeChatMpLoginSuccess = async (data) => {
+    userDispatch({ type: 'login', payload: data });
+    localStorage.setItem('user', JSON.stringify(data));
+    setUserData(data);
+    updateAPI();
+    setShowWeChatMpLoginModal(false);
+    showSuccess(t('微信扫码登录成功'));
+    navigate('/');
+  };
+
   const handleAlipayOAuthClick = () => {
     setAlipayOAuthLoading(true);
     try {
@@ -467,6 +488,23 @@ const RegisterForm = () => {
                     <span className='ml-3'>
                       {t('使用 微信开放平台 OAuth 继续')}
                     </span>
+                  </Button>
+                )}
+
+                {status.wechat_mp_login && (
+                  <Button
+                    theme='outline'
+                    className='w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors'
+                    type='tertiary'
+                    icon={
+                      <Icon
+                        svg={<WeChatIcon />}
+                        style={{ color: '#07C160' }}
+                      />
+                    }
+                    onClick={onWeChatMpLoginClicked}
+                  >
+                    <span className='ml-3'>{t('微信扫码登录')}</span>
                   </Button>
                 )}
 
@@ -863,6 +901,13 @@ const RegisterForm = () => {
           </div>
         )}
       </div>
+
+      <WeChatMpLoginModal
+        visible={showWeChatMpLoginModal}
+        onCancel={() => setShowWeChatMpLoginModal(false)}
+        onSuccess={handleWeChatMpLoginSuccess}
+        affCode={localStorage.getItem('aff') || ''}
+      />
     </div>
   );
 };

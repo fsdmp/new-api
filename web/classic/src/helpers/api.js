@@ -333,6 +333,42 @@ export async function onAlipayOAuthClicked(app_id, options = {}) {
   );
 }
 
+// ----------------------------------------------------------------------------
+// WeChat Scan Login (official account QR code + SCAN event)
+// ----------------------------------------------------------------------------
+
+// Request a WeChat MP-login QR code (creates a session).
+// Returns { scene_id, qr_url, expire_seconds } on success, or null on failure.
+export async function getWeChatMpQrCode(affCode) {
+  try {
+    const res = await API.post('/api/oauth/wechat-mp/qrcode', {
+      aff_code: affCode || '',
+    });
+    const { success, message, data } = res.data;
+    if (success && data) {
+      return data;
+    }
+    showError(message);
+    return null;
+  } catch (err) {
+    showError(err?.message || '生成二维码失败');
+    return null;
+  }
+}
+
+// Poll WeChat MP-login status by scene_id.
+// Returns { success, message, data } raw response, or null on network error.
+export async function getWeChatMpStatus(sceneId) {
+  try {
+    const res = await API.get('/api/oauth/wechat-mp/status', {
+      params: { scene_id: sceneId },
+    });
+    return res.data;
+  } catch (_err) {
+    return null;
+  }
+}
+
 /**
  * Initiate custom OAuth login
  * @param {Object} provider - Custom OAuth provider config from status API

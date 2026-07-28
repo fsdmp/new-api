@@ -76,6 +76,11 @@ const AUTH_SECTIONS = [
           'wechat_oauth.enabled': settings['wechat_oauth.enabled'],
           'wechat_oauth.app_id': settings['wechat_oauth.app_id'],
           'wechat_oauth.app_secret': settings['wechat_oauth.app_secret'],
+          'wechat_oauth.scan_login_enabled':
+            settings['wechat_oauth.scan_login_enabled'],
+          'wechat_oauth.token': settings['wechat_oauth.token'],
+          'wechat_oauth.encoding_aes_key':
+            settings['wechat_oauth.encoding_aes_key'],
           'alipay.enabled': settings['alipay.enabled'],
           'alipay.app_id': settings['alipay.app_id'],
           'alipay.private_key': settings['alipay.private_key'],

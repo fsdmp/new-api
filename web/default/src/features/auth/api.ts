@@ -100,6 +100,65 @@ export async function wechatLoginByCode(code: string): Promise<ApiResponse> {
 }
 
 // ----------------------------------------------------------------------------
+// WeChat MP Login (official account QR code + SCAN event)
+// ----------------------------------------------------------------------------
+
+// Response shape for QR code generation
+export interface WeChatMpQrCodeResponse {
+  success: boolean
+  message: string
+  data?: {
+    scene_id: string
+    qr_url: string
+    expire_seconds: number
+  }
+}
+
+// Response shape for status polling. Data is one of:
+// {status: 'pending'|'scanned'|'expired'|'failed', scene_id?}
+// {status: 'logged_in', scene_id?, id?, username?, display_name?, role?, access_token?}
+export interface WeChatMpStatusResponse {
+  success: boolean
+  message: string
+  data?:
+    | {
+        status: 'pending' | 'scanned' | 'expired' | 'failed'
+        scene_id?: string
+      }
+    | {
+        status: 'logged_in'
+        scene_id?: string
+        id?: number
+        username?: string
+        display_name?: string
+        role?: number
+        access_token?: string
+      }
+}
+
+// Request a WeChat MP-login QR code (creates a session)
+export async function getWeChatMpQrCode(
+  affCode?: string
+): Promise<WeChatMpQrCodeResponse> {
+  const res = await api.post<WeChatMpQrCodeResponse>(
+    '/api/oauth/wechat-mp/qrcode',
+    { aff_code: affCode ?? '' }
+  )
+  return res.data
+}
+
+// Poll WeChat MP-login status by scene_id
+export async function getWeChatMpStatus(
+  sceneId: string
+): Promise<WeChatMpStatusResponse> {
+  const res = await api.get<WeChatMpStatusResponse>(
+    '/api/oauth/wechat-mp/status',
+    { params: { scene_id: sceneId } }
+  )
+  return res.data
+}
+
+// ----------------------------------------------------------------------------
 // Registration
 // ----------------------------------------------------------------------------
 

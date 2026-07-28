@@ -36,6 +36,7 @@ type OAuthProvidersProps = {
   className?: string
   onWeChatLogin?: () => void
   isWeChatLoading?: boolean
+  onWeChatMpLogin?: () => void
 }
 
 type ProviderButton = {
@@ -52,6 +53,7 @@ export function OAuthProviders({
   className,
   onWeChatLogin,
   isWeChatLoading = false,
+  onWeChatMpLogin,
 }: OAuthProvidersProps) {
   const { t } = useTranslation()
   const {
@@ -85,6 +87,15 @@ export function OAuthProviders({
       key: 'wechat-oauth',
       label: t('Continue with WeChat OAuth'),
       onClick: handleWeChatOAuthLogin,
+      icon: <IconWeChat className='h-4 w-4' />,
+    })
+  }
+
+  if (status?.wechat_mp_login && onWeChatMpLogin) {
+    providerButtons.push({
+      key: 'wechat-mp',
+      label: t('Continue with WeChat Scan'),
+      onClick: onWeChatMpLogin,
       icon: <IconWeChat className='h-4 w-4' />,
     })
   }
