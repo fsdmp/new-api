@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useNavigate } from '@tanstack/react-router'
 import i18n from 'i18next'
+import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth-store'
 import { getSelf } from '@/lib/api'
 import type { User } from '@/features/users/types'
@@ -54,9 +55,26 @@ export function useAuthRedirect() {
    * @param redirectTo - Redirect path after login
    */
   const handleLoginSuccess = async (
-    userData?: { id?: number } | null,
+    userData?:
+      | {
+          id?: number
+          subscription_gift?: {
+            gifted: boolean
+            plan_title?: string
+            message?: string
+          }
+        }
+      | null,
     redirectTo?: string
   ) => {
+    // Show subscription gift toast before navigating away
+    if (userData?.subscription_gift?.gifted) {
+      toast.success(
+        userData.subscription_gift.message ||
+          i18n.t('Gift subscription activated')
+      )
+    }
+
     // Save user ID if available
     if (userData?.id) {
       saveUserId(userData.id)

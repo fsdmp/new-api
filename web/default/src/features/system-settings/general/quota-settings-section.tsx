@@ -52,6 +52,9 @@ const quotaSchema = z.object({
   PreConsumedQuota: z.coerce.number().min(0),
   QuotaForInviter: z.coerce.number().min(0),
   QuotaForInvitee: z.coerce.number().min(0),
+  SubscriptionGiftEnabled: z.boolean(),
+  SubscriptionGiftPlanId: z.coerce.number().min(0),
+  SubscriptionGiftMessage: z.string(),
   TopUpLink: z.string(),
   general_setting: z.object({
     docs_link: z.string(),
@@ -284,6 +287,81 @@ export function QuotaSettingsSection({
               )}
             />
           </SettingsFormGrid>
+
+          <SettingsSection title={t('Register Gift Subscription')}>
+            <SettingsFormGrid>
+              <SettingsFormGridItem span='full'>
+                <FormField
+                  control={form.control}
+                  name='SubscriptionGiftEnabled'
+                  render={({ field }) => (
+                    <SettingsSwitchItem>
+                      <SettingsSwitchContent>
+                        <FormLabel>
+                          {t('Enable Subscription Gift on Register')}
+                        </FormLabel>
+                        <FormDescription>
+                          {t(
+                            'When enabled, new users automatically receive one subscription after registration.'
+                          )}
+                        </FormDescription>
+                      </SettingsSwitchContent>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          disabled={updateOption.isPending}
+                        />
+                      </FormControl>
+                    </SettingsSwitchItem>
+                  )}
+                />
+              </SettingsFormGridItem>
+
+              <FormField
+                control={form.control}
+                name='SubscriptionGiftPlanId'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Gift Subscription Plan ID')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        value={field.value ?? ''}
+                        onChange={handleNumberChange(field.onChange)}
+                        name={field.name}
+                        onBlur={field.onBlur}
+                        ref={field.ref}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('The subscription plan gifted to new users')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='SubscriptionGiftMessage'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Gift Message')}</FormLabel>
+                    <FormControl>
+                      <Input placeholder={t('Congratulations on registering!')} {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        '{title} will be replaced with the plan name.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </SettingsFormGrid>
+          </SettingsSection>
         </SettingsForm>
       </Form>
     </SettingsSection>

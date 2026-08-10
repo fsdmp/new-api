@@ -152,6 +152,10 @@ var AutomaticEnableChannelEnabled = false
 var QuotaRemindThreshold = 1000
 var PreConsumedQuota = 500
 
+var SubscriptionGiftEnabled = false
+var SubscriptionGiftPlanId = 0
+var SubscriptionGiftMessage = "恭喜注册成功，已为你开通 {title} 订阅！"
+
 var RetryTimes = 0
 
 //var RootUserEmail = ""

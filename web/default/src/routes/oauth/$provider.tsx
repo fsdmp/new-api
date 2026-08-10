@@ -193,6 +193,12 @@ function OAuthCallback() {
             } catch (_error) {
               void _error
             }
+            if (loginUser.subscription_gift?.gifted) {
+              toast.success(
+                loginUser.subscription_gift.message ||
+                  i18next.t('Gift subscription activated')
+              )
+            }
             redirectAfterLogin()
             return
           }

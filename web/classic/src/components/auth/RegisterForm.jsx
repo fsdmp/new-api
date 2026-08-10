@@ -249,10 +249,14 @@ const RegisterForm = () => {
           `/api/user/register?turnstile=${turnstileToken}`,
           inputs,
         );
-        const { success, message } = res.data;
+        const { success, message, data } = res.data;
         if (success) {
           navigate('/login');
-          showSuccess(t('注册成功！'));
+          if (data?.subscription_gift?.gifted) {
+            showSuccess(data.subscription_gift.message);
+          } else {
+            showSuccess(t('注册成功！'));
+          }
         } else {
           showError(message);
         }

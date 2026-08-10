@@ -676,6 +676,52 @@ func AdminBindSubscription(userId int, planId int, sourceNote string) (string, e
 	return "", nil
 }
 
+// GiveSubscriptionGift 新用户注册成功后赠送一次订阅。
+// isNewUser 由调用方显式传入（仅注册路径为 true）；事务内锁用户行 +
+// 检查 source='register' 记录做并发兜底去重。
+// 返回 (gifted, planTitle, message, err)：planTitle 供前端展示，message 为已替换 {title} 的完整文案。
+func GiveSubscriptionGift(userId int, planId int, isNewUser bool) (bool, string, string, error) {
+	if !common.SubscriptionGiftEnabled || !isNewUser || planId <= 0 {
+		return false, "", "", nil
+	}
+	plan, err := GetSubscriptionPlanById(planId)
+	if err != nil {
+		return false, "", "", err
+	}
+	gifted := false
+	planTitle := ""
+	message := ""
+	err = DB.Transaction(func(tx *gorm.DB) error {
+		var user User
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").Where("id = ?", userId).First(&user).Error; err != nil {
+			return err
+		}
+		var count int64
+		if err := tx.Model(&UserSubscription{}).
+			Where("user_id = ? AND source = ?", userId, "register").
+			Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return nil // 已赠送过，跳过（并发兜底）
+		}
+		if _, err := CreateUserSubscriptionFromPlanTx(tx, userId, plan, "register"); err != nil {
+			return err
+		}
+		gifted = true
+		planTitle = plan.Title
+		message = strings.ReplaceAll(common.SubscriptionGiftMessage, "{title}", plan.Title)
+		return nil
+	})
+	if err != nil {
+		return false, "", "", err
+	}
+	if gifted && strings.TrimSpace(plan.UpgradeGroup) != "" {
+		_ = UpdateUserGroupCache(userId, plan.UpgradeGroup)
+	}
+	return gifted, planTitle, message, nil
+}
+
 func calcSubscriptionBalanceQuota(priceAmount float64) (int, error) {
 	if priceAmount <= 0 {
 		return 0, nil

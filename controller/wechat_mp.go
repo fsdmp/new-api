@@ -176,7 +176,7 @@ func WeChatMpStatus(c *gin.Context) {
 		return
 	case wechat_mp.StatusScanned:
 		// 扫码成功，立即完成登录
-		user, loginErr := findOrCreateWeChatMpUser(state.OpenID, state.Nickname, state.AffCode)
+		user, isNew, loginErr := findOrCreateWeChatMpUser(state.OpenID, state.Nickname, state.AffCode)
 		if loginErr != nil {
 			// 登录失败，清理会话
 			_ = markMpFailed(sceneId)
@@ -209,7 +209,7 @@ func WeChatMpStatus(c *gin.Context) {
 		// 完成登录：写 session + 返回用户数据。
 		// 注意：不能直接复用 setupLogin，因为它把 data.status 设为 user.Status（int），
 		// 与前端状态机期待的 data.status="logged_in"（string）冲突。这里使用专用版本。
-		setupMpLogin(user, sceneId, c)
+		setupMpLogin(user, sceneId, c, isNew)
 		return
 	case wechat_mp.StatusLoggedIn:
 		// 极少数情况：状态还是 logged_in（理论上 MarkLoggedIn 后已删除）
@@ -284,6 +284,8 @@ func WeChatMpCallback(c *gin.Context) {
 		if msg.Event == "subscribe" {
 			// 普通关注（EventKey 不带 qrscene_ 前缀）
 			reply = mpSubscribeReply
+			// 关注后异步推送官方交流群二维码（客服消息，失败不影响关注流程）
+			go pushMpGroupQrCode(settings, msg.FromUserName)
 		} else {
 			// 其他消息：文本 / 图片 / 语音 / 菜单点击（CLICK）/ 位置等
 			reply = mpDefaultReply
@@ -333,24 +335,26 @@ func WeChatMpCallback(c *gin.Context) {
 // 与现有 controller/wechat.go::WeChatAuth 保持相同行为：
 //   - 若 openid 已存在用户 → 返回该用户
 //   - 否则在 RegisterEnabled 时新建用户
-func findOrCreateWeChatMpUser(openID, nickname, affCode string) (*model.User, error) {
+//
+// 返回 (user, isNew, err)：isNew 表示本次是否为新注册用户（用于注册赠送订阅）。
+func findOrCreateWeChatMpUser(openID, nickname, affCode string) (*model.User, bool, error) {
 	if openID == "" {
-		return nil, fmt.Errorf("openid 为空")
+		return nil, false, fmt.Errorf("openid 为空")
 	}
 	user := &model.User{WeChatId: openID}
 	if model.IsWeChatIdAlreadyTaken(openID) {
 		if err := user.FillUserByWeChatId(); err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		if user.Id == 0 {
-			return nil, fmt.Errorf("用户已注销")
+			return nil, false, fmt.Errorf("用户已注销")
 		}
-		return user, nil
+		return user, false, nil
 	}
 
 	// 新建用户
 	if !common.RegisterEnabled {
-		return nil, fmt.Errorf("管理员关闭了新用户注册")
+		return nil, false, fmt.Errorf("管理员关闭了新用户注册")
 	}
 
 	// 拼接规则：wechat_mp_<maxUserId+1>[_<清洗后的昵称>]
@@ -379,7 +383,7 @@ func findOrCreateWeChatMpUser(openID, nickname, affCode string) (*model.User, er
 	user.InviterId = inviterId
 
 	if err := user.Insert(inviterId); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	user.FinalizeOAuthUserCreation(inviterId)
 
@@ -407,7 +411,7 @@ func findOrCreateWeChatMpUser(openID, nickname, affCode string) (*model.User, er
 			}
 		}
 	}
-	return user, nil
+	return user, true, nil
 }
 
 // sanitizeMpNickname 清洗微信昵称，使其可作为 username 后缀。
@@ -470,6 +474,32 @@ func pushMpLoginSuccessMessage(settings *system_setting.WeChatOAuthSettings, ope
 	}
 }
 
+// pushMpGroupQrCode 异步向新关注的用户推送官方交流群二维码图片。
+// 利用关注事件后的 48 小时客服消息窗口发送，失败仅记录日志，不影响关注流程。
+func pushMpGroupQrCode(settings *system_setting.WeChatOAuthSettings, openID string) {
+	defer func() {
+		if r := recover(); r != nil {
+			common.SysLog(fmt.Sprintf("push mp group qrcode panic: %v", r))
+		}
+	}()
+
+	accessToken, err := wechat_mp.GetAccessToken(settings.AppId, settings.AppSecret)
+	if err != nil {
+		common.SysLog("push mp group qrcode: get access_token failed: " + err.Error())
+		return
+	}
+
+	mediaID, err := wechat_mp.UploadTempImage(accessToken, wechat_mp.GroupQRCodeImage(), "group_qrcode.jpg")
+	if err != nil {
+		common.SysLog("push mp group qrcode: upload image failed: " + err.Error())
+		return
+	}
+
+	if err := wechat_mp.SendCustomImageMessage(accessToken, openID, mediaID); err != nil {
+		common.SysLog("push mp group qrcode: send image failed: " + err.Error())
+	}
+}
+
 // setupMpLogin 是 setupLogin 的变体，专为公众号扫码登录场景定制。
 // 与 setupLogin 的差异：
 //   - data.status 设为字符串 "logged_in"（前端状态机识别用），而非 user.Status（int）
@@ -478,7 +508,7 @@ func pushMpLoginSuccessMessage(settings *system_setting.WeChatOAuthSettings, ope
 //
 // 其余字段（id/username/display_name/role/group/access_token）与 setupLogin 完全一致，
 // 保证非 cookie 客户端可以直接拿 access_token + id 作为长期凭证。
-func setupMpLogin(user *model.User, sceneId string, c *gin.Context) {
+func setupMpLogin(user *model.User, sceneId string, c *gin.Context, isNewUser bool) {
 	model.UpdateUserLastLoginAt(user.Id)
 
 	// 若用户还没有 access_token，则生成并持久化（供非 cookie 客户端使用）
@@ -506,19 +536,37 @@ func setupMpLogin(user *model.User, sceneId string, c *gin.Context) {
 		return
 	}
 
+	var subscriptionGift map[string]any
+	if isNewUser {
+		gifted, planTitle, message, giftErr := model.GiveSubscriptionGift(user.Id, common.SubscriptionGiftPlanId, true)
+		if giftErr != nil {
+			common.SysLog("give subscription gift failed: " + giftErr.Error())
+		} else if gifted {
+			subscriptionGift = map[string]any{
+				"gifted":     true,
+				"plan_title": planTitle,
+				"message":    message,
+			}
+		}
+	}
+
+	data := map[string]any{
+		"status":       "logged_in", // 状态机标识（string），与 pending/expired/failed 同维
+		"scene_id":     sceneId,
+		"id":           user.Id,
+		"username":     user.Username,
+		"display_name": user.DisplayName,
+		"role":         user.Role,
+		"user_status":  user.Status, // 用户启用态（int），对应 common.UserStatusEnabled 等
+		"group":        user.Group,
+		"access_token": user.GetAccessToken(),
+	}
+	if subscriptionGift != nil {
+		data["subscription_gift"] = subscriptionGift
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"message": "",
 		"success": true,
-		"data": map[string]any{
-			"status":       "logged_in", // 状态机标识（string），与 pending/expired/failed 同维
-			"scene_id":     sceneId,
-			"id":           user.Id,
-			"username":     user.Username,
-			"display_name": user.DisplayName,
-			"role":         user.Role,
-			"user_status":  user.Status, // 用户启用态（int），对应 common.UserStatusEnabled 等
-			"group":        user.Group,
-			"access_token": user.GetAccessToken(),
-		},
+		"data":    data,
 	})
 }

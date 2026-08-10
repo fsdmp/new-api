@@ -48,6 +48,11 @@ export interface AuthUser {
   stripe_customer?: string
   sidebar_modules?: string
   permissions?: UserPermissions
+  subscription_gift?: {
+    gifted: boolean
+    plan_title?: string
+    message?: string
+  }
 }
 
 interface AuthState {

@@ -38,6 +38,9 @@ export default function SettingsCreditLimit(props) {
     QuotaForInvitee: '',
     'quota_setting.enable_free_model_pre_consume': true,
     'aff_quota_setting.auto_transfer_enabled': false,
+    SubscriptionGiftEnabled: false,
+    SubscriptionGiftPlanId: '',
+    SubscriptionGiftMessage: '',
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
@@ -91,6 +94,12 @@ export default function SettingsCreditLimit(props) {
     setInputsRow(structuredClone(currentInputs));
     refForm.current.setValues(currentInputs);
   }, [props.options]);
+
+  // 统一使用函数式 setState，避免连续修改多个字段时 stale closure 导致丢更新
+  function updateField(key, value) {
+    setInputs((prev) => ({ ...prev, [key]: value }));
+  }
+
   return (
     <>
       <Spin spinning={loading}>
@@ -120,10 +129,7 @@ export default function SettingsCreditLimit(props) {
                   suffix={'Token'}
                   placeholder={''}
                   onChange={(value) =>
-                    setInputs({
-                      ...inputs,
-                      QuotaForNewUser: String(value),
-                    })
+                    updateField('QuotaForNewUser', String(value))
                   }
                 />
               </Col>
@@ -137,10 +143,7 @@ export default function SettingsCreditLimit(props) {
                   extraText={t('请求结束后多退少补')}
                   placeholder={''}
                   onChange={(value) =>
-                    setInputs({
-                      ...inputs,
-                      PreConsumedQuota: String(value),
-                    })
+                    updateField('PreConsumedQuota', String(value))
                   }
                 />
               </Col>
@@ -156,10 +159,7 @@ export default function SettingsCreditLimit(props) {
                   }
                   placeholder={t('例如：2000')}
                   onChange={(value) =>
-                    setInputs({
-                      ...inputs,
-                      QuotaForInviter: String(value),
-                    })
+                    updateField('QuotaForInviter', String(value))
                   }
                 />
               </Col>
@@ -177,10 +177,7 @@ export default function SettingsCreditLimit(props) {
                   }
                   placeholder={t('例如：1000')}
                   onChange={(value) =>
-                    setInputs({
-                      ...inputs,
-                      QuotaForInvitee: String(value),
-                    })
+                    updateField('QuotaForInvitee', String(value))
                   }
                 />
               </Col>
@@ -192,10 +189,7 @@ export default function SettingsCreditLimit(props) {
                     '开启后，邀请人获得的邀请奖励额度将自动划转到可用余额',
                   )}
                   onChange={(value) =>
-                    setInputs({
-                      ...inputs,
-                      'aff_quota_setting.auto_transfer_enabled': value,
-                    })
+                    updateField('aff_quota_setting.auto_transfer_enabled', value)
                   }
                 />
               </Col>
@@ -209,10 +203,10 @@ export default function SettingsCreditLimit(props) {
                     '开启后，对免费模型（倍率为0，或者价格为0）的模型也会预消耗额度',
                   )}
                   onChange={(value) =>
-                    setInputs({
-                      ...inputs,
-                      'quota_setting.enable_free_model_pre_consume': value,
-                    })
+                    updateField(
+                      'quota_setting.enable_free_model_pre_consume',
+                      value,
+                    )
                   }
                 />
               </Col>
@@ -221,6 +215,51 @@ export default function SettingsCreditLimit(props) {
             <Row>
               <Button size='default' onClick={onSubmit}>
                 {t('保存额度设置')}
+              </Button>
+            </Row>
+          </Form.Section>
+
+          <Form.Section text={t('注册送订阅')}>
+            <Row>
+              <Col xs={24} sm={12} md={8} lg={8} xl={6}>
+                <Form.Switch
+                  label={t('启用注册送订阅')}
+                  field={'SubscriptionGiftEnabled'}
+                  extraText={t('开启后，新用户注册成功时自动赠送一次订阅')}
+                  onChange={(value) =>
+                    updateField('SubscriptionGiftEnabled', value)
+                  }
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={6}>
+                <Form.InputNumber
+                  label={t('赠送订阅套餐 ID')}
+                  field={'SubscriptionGiftPlanId'}
+                  step={1}
+                  min={0}
+                  placeholder={t('例如：1')}
+                  onChange={(value) =>
+                    updateField('SubscriptionGiftPlanId', value ?? '')
+                  }
+                />
+              </Col>
+            </Row>
+            <Row>
+              <Col>
+                <Form.Input
+                  label={t('赠送文案')}
+                  field={'SubscriptionGiftMessage'}
+                  extraText={t('{title} 会被替换为套餐名称')}
+                  placeholder={t('恭喜注册成功，已为你开通 {title} 订阅！')}
+                  onChange={(value) =>
+                    updateField('SubscriptionGiftMessage', value)
+                  }
+                />
+              </Col>
+            </Row>
+            <Row>
+              <Button size='default' onClick={onSubmit}>
+                {t('保存赠送订阅设置')}
               </Button>
             </Row>
           </Form.Section>

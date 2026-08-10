@@ -65,6 +65,9 @@ const OAuth2Callback = (props) => {
         setUserData(data);
         updateAPI();
         showSuccess(t('登录成功！'));
+        if (data?.subscription_gift?.gifted) {
+          showSuccess(data.subscription_gift.message);
+        }
         navigate('/console/token');
       }
     } catch (error) {

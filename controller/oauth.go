@@ -118,7 +118,7 @@ func HandleOAuth(c *gin.Context) {
 			affCode = sessionAff.(string)
 		}
 	}
-	user, err := findOrCreateOAuthUser(c, provider, oauthUser, affCode)
+	user, isNew, err := findOrCreateOAuthUser(c, provider, oauthUser, affCode)
 	if err != nil {
 		switch err.(type) {
 		case *OAuthUserDeletedError:
@@ -138,7 +138,7 @@ func HandleOAuth(c *gin.Context) {
 	}
 
 	// 9. Setup login
-	setupLogin(user, c)
+	setupLoginWithGift(user, c, isNew)
 }
 
 // handleOAuthBind handles binding OAuth account to existing user
@@ -214,20 +214,21 @@ func handleOAuthBind(c *gin.Context, provider oauth.Provider) {
 }
 
 // findOrCreateOAuthUser finds existing user or creates new user
-func findOrCreateOAuthUser(_ *gin.Context, provider oauth.Provider, oauthUser *oauth.OAuthUser, affCode string) (*model.User, error) {
+// 返回 (user, isNew, err)：isNew 表示本次是否为新注册用户（用于注册赠送订阅）。
+func findOrCreateOAuthUser(_ *gin.Context, provider oauth.Provider, oauthUser *oauth.OAuthUser, affCode string) (*model.User, bool, error) {
 	user := &model.User{}
 
 	// Check if user already exists with new ID
 	if provider.IsUserIDTaken(oauthUser.ProviderUserID) {
 		err := provider.FillUserByProviderID(user, oauthUser.ProviderUserID)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		// Check if user has been deleted
 		if user.Id == 0 {
-			return nil, &OAuthUserDeletedError{}
+			return nil, false, &OAuthUserDeletedError{}
 		}
-		return user, nil
+		return user, false, nil
 	}
 
 	// Try to find user with legacy ID (for GitHub migration from login to numeric ID)
@@ -235,7 +236,7 @@ func findOrCreateOAuthUser(_ *gin.Context, provider oauth.Provider, oauthUser *o
 		if provider.IsUserIDTaken(legacyID) {
 			err := provider.FillUserByProviderID(user, legacyID)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 			if user.Id != 0 {
 				// Found user with legacy ID, migrate to new ID
@@ -245,14 +246,14 @@ func findOrCreateOAuthUser(_ *gin.Context, provider oauth.Provider, oauthUser *o
 					common.SysError(fmt.Sprintf("[OAuth] Failed to migrate user %d: %s", user.Id, err.Error()))
 					// Continue with login even if migration fails
 				}
-				return user, nil
+				return user, false, nil
 			}
 		}
 	}
 
 	// User doesn't exist, create new user if registration is enabled
 	if !common.RegisterEnabled {
-		return nil, &OAuthRegistrationDisabledError{}
+		return nil, false, &OAuthRegistrationDisabledError{}
 	}
 
 	// Set up new user
@@ -304,7 +305,7 @@ func findOrCreateOAuthUser(_ *gin.Context, provider oauth.Provider, oauthUser *o
 			return nil
 		})
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 
 		// Perform post-transaction tasks (logs, sidebar config, inviter rewards)
@@ -334,7 +335,7 @@ func findOrCreateOAuthUser(_ *gin.Context, provider oauth.Provider, oauthUser *o
 			return nil
 		})
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 
 		// Perform post-transaction tasks
@@ -365,7 +366,7 @@ func findOrCreateOAuthUser(_ *gin.Context, provider oauth.Provider, oauthUser *o
 		}
 	}
 
-	return user, nil
+	return user, true, nil
 }
 
 // Error types for OAuth

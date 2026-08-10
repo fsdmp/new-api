@@ -173,7 +173,18 @@ export function SignUpForm({
       })
 
       if (res?.success) {
-        toast.success(t('Account created! Please sign in'))
+        const gift = (res.data as {
+          subscription_gift?: {
+            gifted: boolean
+            plan_title?: string
+            message?: string
+          }
+        })?.subscription_gift
+        if (gift?.gifted) {
+          toast.success(gift.message || t('Gift subscription activated'))
+        } else {
+          toast.success(t('Account created! Please sign in'))
+        }
         redirectToLogin()
       } else {
         toast.error(res?.message || t('Failed to create account'))

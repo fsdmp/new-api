@@ -207,6 +207,9 @@ const LoginForm = () => {
     updateAPI();
     setShowWeChatMpLoginModal(false);
     showSuccess(t('微信扫码登录成功'));
+    if (data?.subscription_gift?.gifted) {
+      showSuccess(data.subscription_gift.message);
+    }
     navigate('/');
   };
 
@@ -228,6 +231,9 @@ const LoginForm = () => {
         updateAPI();
         navigate('/');
         showSuccess(t('登录成功！'));
+        if (data?.subscription_gift?.gifted) {
+          showSuccess(data.subscription_gift.message);
+        }
         setShowWeChatLoginModal(false);
       } else {
         showError(message);
@@ -276,6 +282,9 @@ const LoginForm = () => {
           setUserData(data);
           updateAPI();
           showSuccess(t('登录成功！'));
+          if (data?.subscription_gift?.gifted) {
+            showSuccess(data.subscription_gift.message);
+          }
           if (username === 'root' && password === '123456') {
             Modal.error({
               title: t('您正在使用默认密码！'),
@@ -326,6 +335,9 @@ const LoginForm = () => {
         userDispatch({ type: 'login', payload: data });
         localStorage.setItem('user', JSON.stringify(data));
         showSuccess(t('登录成功！'));
+        if (data?.subscription_gift?.gifted) {
+          showSuccess(data.subscription_gift.message);
+        }
         setUserData(data);
         updateAPI();
         navigate('/');
@@ -516,6 +528,9 @@ const LoginForm = () => {
         setUserData(finish.data);
         updateAPI();
         showSuccess(t('登录成功！'));
+        if (finish.data?.subscription_gift?.gifted) {
+          showSuccess(finish.data.subscription_gift.message);
+        }
         navigate('/console');
       } else {
         showError(finish.message || t('Passkey 登录失败，请重试'));
@@ -551,6 +566,9 @@ const LoginForm = () => {
     setUserData(data);
     updateAPI();
     showSuccess(t('登录成功！'));
+    if (data?.subscription_gift?.gifted) {
+      showSuccess(data.subscription_gift.message);
+    }
     navigate('/console');
   };
 

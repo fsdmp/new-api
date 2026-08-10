@@ -133,6 +133,11 @@ export interface WeChatMpStatusResponse {
         display_name?: string
         role?: number
         access_token?: string
+        subscription_gift?: {
+          gifted: boolean
+          plan_title?: string
+          message?: string
+        }
       }
 }
 

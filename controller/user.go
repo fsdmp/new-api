@@ -91,6 +91,12 @@ func Login(c *gin.Context) {
 
 // setup session & cookies and then return user info
 func setupLogin(user *model.User, c *gin.Context) {
+	setupLoginWithGift(user, c, false)
+}
+
+// setupLoginWithGift 在 setupLogin 基础上，对刚注册成功的新用户（isNewUser=true）
+// 自动赠送一次订阅，并在响应 data.subscription_gift 中携带赠送信息。
+func setupLoginWithGift(user *model.User, c *gin.Context, isNewUser bool) {
 	model.UpdateUserLastLoginAt(user.Id)
 
 	// Generate access token if not exists, so third-party clients can use it
@@ -118,18 +124,37 @@ func setupLogin(user *model.User, c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgUserSessionSaveFailed)
 		return
 	}
+
+	var subscriptionGift map[string]any
+	if isNewUser {
+		gifted, planTitle, message, giftErr := model.GiveSubscriptionGift(user.Id, common.SubscriptionGiftPlanId, true)
+		if giftErr != nil {
+			common.SysLog("give subscription gift failed: " + giftErr.Error())
+		} else if gifted {
+			subscriptionGift = map[string]any{
+				"gifted":     true,
+				"plan_title": planTitle,
+				"message":    message,
+			}
+		}
+	}
+
+	data := map[string]any{
+		"id":           user.Id,
+		"username":     user.Username,
+		"display_name": user.DisplayName,
+		"role":         user.Role,
+		"status":       user.Status,
+		"group":        user.Group,
+		"access_token": user.GetAccessToken(),
+	}
+	if subscriptionGift != nil {
+		data["subscription_gift"] = subscriptionGift
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"message": "",
 		"success": true,
-		"data": map[string]any{
-			"id":           user.Id,
-			"username":     user.Username,
-			"display_name": user.DisplayName,
-			"role":         user.Role,
-			"status":       user.Status,
-			"group":        user.Group,
-			"access_token": user.GetAccessToken(),
-		},
+		"data":    data,
 	})
 }
 
@@ -239,9 +264,16 @@ func Register(c *gin.Context) {
 		}
 	}
 
+	data := map[string]any{}
+	if gifted, planTitle, message, giftErr := model.GiveSubscriptionGift(insertedUser.Id, common.SubscriptionGiftPlanId, true); giftErr != nil {
+		common.SysLog("give subscription gift failed: " + giftErr.Error())
+	} else if gifted {
+		data["subscription_gift"] = map[string]any{"gifted": true, "plan_title": planTitle, "message": message}
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
+		"data":    data,
 	})
 	return
 }

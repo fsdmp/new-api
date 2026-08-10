@@ -1,9 +1,11 @@
 package wechat_mp
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strings"
@@ -172,6 +174,97 @@ func SendCustomTextMessage(accessToken, openid, content string) error {
 	}
 	if res.ErrCode != 0 {
 		return fmt.Errorf("wechat custom send error: code=%d msg=%s", res.ErrCode, res.ErrMsg)
+	}
+	return nil
+}
+
+// mediaUploadResponse 微信临时素材上传响应
+type mediaUploadResponse struct {
+	Type      string `json:"type"`
+	MediaID   string `json:"media_id"`
+	CreatedAt int64  `json:"created_at"`
+	ErrCode   int    `json:"errcode"`
+	ErrMsg    string `json:"errmsg"`
+}
+
+// UploadTempImage 上传图片到微信临时素材库，返回 media_id（3 天有效）。
+// 用于后续通过客服消息发送图片。
+func UploadTempImage(accessToken string, imageBytes []byte, filename string) (mediaID string, err error) {
+	if accessToken == "" || len(imageBytes) == 0 {
+		return "", errors.New("invalid params for upload image")
+	}
+	if filename == "" {
+		filename = "image.jpg"
+	}
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	field, err := writer.CreateFormFile("media", filename)
+	if err != nil {
+		return "", fmt.Errorf("create form file: %w", err)
+	}
+	if _, err := field.Write(imageBytes); err != nil {
+		return "", fmt.Errorf("write image bytes: %w", err)
+	}
+	if err := writer.Close(); err != nil {
+		return "", fmt.Errorf("close multipart writer: %w", err)
+	}
+
+	u := fmt.Sprintf("%s/cgi-bin/media/upload?access_token=%s&type=image",
+		baseURL, url.QueryEscape(accessToken))
+	client := &http.Client{Timeout: httpTimeout}
+	resp, err := client.Post(u, writer.FormDataContentType(), body)
+	if err != nil {
+		return "", fmt.Errorf("upload temp image: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read upload response: %w", err)
+	}
+
+	var res mediaUploadResponse
+	if err := common.UnmarshalJsonStr(string(respBytes), &res); err != nil {
+		return "", fmt.Errorf("decode upload response: %w", err)
+	}
+	if res.ErrCode != 0 || res.MediaID == "" {
+		return "", fmt.Errorf("wechat upload image error: code=%d msg=%s", res.ErrCode, res.ErrMsg)
+	}
+	return res.MediaID, nil
+}
+
+// SendCustomImageMessage 通过客服消息接口向用户发送一条图片消息。
+func SendCustomImageMessage(accessToken, openid, mediaID string) error {
+	if accessToken == "" || openid == "" || mediaID == "" {
+		return errors.New("invalid params for custom image message")
+	}
+
+	payload, err := common.Marshal(map[string]any{
+		"touser":  openid,
+		"msgtype": "image",
+		"image":   map[string]string{"media_id": mediaID},
+	})
+	if err != nil {
+		return fmt.Errorf("marshal image message payload: %w", err)
+	}
+
+	u := fmt.Sprintf("%s/cgi-bin/message/custom/send?access_token=%s",
+		baseURL, url.QueryEscape(accessToken))
+	body, err := httpPostJSON(u, string(payload))
+	if err != nil {
+		return fmt.Errorf("send custom image message: %w", err)
+	}
+
+	var res struct {
+		ErrCode int    `json:"errcode"`
+		ErrMsg  string `json:"errmsg"`
+	}
+	if err := common.UnmarshalJsonStr(string(body), &res); err != nil {
+		return fmt.Errorf("decode custom image send response: %w", err)
+	}
+	if res.ErrCode != 0 {
+		return fmt.Errorf("wechat custom image send error: code=%d msg=%s", res.ErrCode, res.ErrMsg)
 	}
 	return nil
 }

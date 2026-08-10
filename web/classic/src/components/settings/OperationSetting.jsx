@@ -39,6 +39,11 @@ const OperationSetting = () => {
     'quota_setting.enable_free_model_pre_consume': true,
     'aff_quota_setting.auto_transfer_enabled': false,
 
+    /* 注册送订阅 */
+    SubscriptionGiftEnabled: false,
+    SubscriptionGiftPlanId: 0,
+    SubscriptionGiftMessage: '',
+
     /* 通用设置 */
     TopUpLink: '',
     'general_setting.docs_link': '',
