@@ -55,6 +55,13 @@ const quotaSchema = z.object({
   SubscriptionGiftEnabled: z.boolean(),
   SubscriptionGiftPlanId: z.coerce.number().min(0),
   SubscriptionGiftMessage: z.string(),
+  InviteSubscriptionGiftEnabled: z.boolean(),
+  InviteSubscriptionGiftPlanId: z.coerce.number().min(0),
+  InviteSubscriptionGiftMaxCount: z.coerce.number().min(0),
+  InviteSubscriptionGiftMessage: z.string(),
+  InviteeSubscriptionGiftEnabled: z.boolean(),
+  InviteeSubscriptionGiftPlanId: z.coerce.number().min(0),
+  InviteeSubscriptionGiftMessage: z.string(),
   TopUpLink: z.string(),
   general_setting: z.object({
     docs_link: z.string(),
@@ -355,6 +362,174 @@ export function QuotaSettingsSection({
                       {t(
                         '{title} will be replaced with the plan name.'
                       )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </SettingsFormGrid>
+          </SettingsSection>
+
+          <SettingsSection title={t('Invite Gift Subscription')}>
+            <SettingsFormGrid>
+              <SettingsFormGridItem span='full'>
+                <FormField
+                  control={form.control}
+                  name='InviteSubscriptionGiftEnabled'
+                  render={({ field }) => (
+                    <SettingsSwitchItem>
+                      <SettingsSwitchContent>
+                        <FormLabel>
+                          {t('Enable Subscription Gift on Invite')}
+                        </FormLabel>
+                        <FormDescription>
+                          {t(
+                            'When enabled, the inviter receives a subscription after a referred user signs up. Requires compliance confirmation and an invitation code.'
+                          )}
+                        </FormDescription>
+                      </SettingsSwitchContent>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          disabled={updateOption.isPending}
+                        />
+                      </FormControl>
+                    </SettingsSwitchItem>
+                  )}
+                />
+              </SettingsFormGridItem>
+
+              <FormField
+                control={form.control}
+                name='InviteSubscriptionGiftPlanId'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Gift Subscription Plan ID')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        value={field.value ?? ''}
+                        onChange={handleNumberChange(field.onChange)}
+                        name={field.name}
+                        onBlur={field.onBlur}
+                        ref={field.ref}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('The subscription plan gifted to the inviter')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='InviteSubscriptionGiftMaxCount'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Max Gifts per Inviter')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        value={field.value ?? ''}
+                        onChange={handleNumberChange(field.onChange)}
+                        name={field.name}
+                        onBlur={field.onBlur}
+                        ref={field.ref}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Maximum subscriptions an inviter can receive. 0 disables gifting.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='InviteSubscriptionGiftMessage'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Gift Message')}</FormLabel>
+                    <FormControl>
+                      <Input placeholder={t('Invitation reward granted!')} {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      {t('{title} will be replaced with the plan name.')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <SettingsFormGridItem span='full'>
+                <FormField
+                  control={form.control}
+                  name='InviteeSubscriptionGiftEnabled'
+                  render={({ field }) => (
+                    <SettingsSwitchItem>
+                      <SettingsSwitchContent>
+                        <FormLabel>
+                          {t('Enable Subscription Gift for Invitee')}
+                        </FormLabel>
+                        <FormDescription>
+                          {t(
+                            'When enabled, a user who signs up with an invitation code also receives a subscription. Stacks with the register gift.'
+                          )}
+                        </FormDescription>
+                      </SettingsSwitchContent>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          disabled={updateOption.isPending}
+                        />
+                      </FormControl>
+                    </SettingsSwitchItem>
+                  )}
+                />
+              </SettingsFormGridItem>
+
+              <FormField
+                control={form.control}
+                name='InviteeSubscriptionGiftPlanId'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Gift Subscription Plan ID')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        value={field.value ?? ''}
+                        onChange={handleNumberChange(field.onChange)}
+                        name={field.name}
+                        onBlur={field.onBlur}
+                        ref={field.ref}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('The subscription plan gifted to the invited user')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='InviteeSubscriptionGiftMessage'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Gift Message')}</FormLabel>
+                    <FormControl>
+                      <Input placeholder={t('Welcome! Your subscription is active.')} {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      {t('{title} will be replaced with the plan name.')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

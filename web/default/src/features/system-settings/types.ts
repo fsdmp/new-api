@@ -39,6 +39,21 @@ export type UpdateOptionResponse = {
   message: string
 }
 
+export type QRCodeName = 'mp_group' | 'site'
+
+export type QRCodeStatusResponse = {
+  success: boolean
+  message: string
+  data: {
+    mp_group: boolean
+    site: boolean
+  }
+}
+
+export type UpdateQRCodeRequest = {
+  image: string
+}
+
 export type ConfirmPaymentComplianceResponse = {
   success: boolean
   message: string
@@ -203,6 +218,13 @@ export type BillingSettings = {
   SubscriptionGiftEnabled: boolean
   SubscriptionGiftPlanId: number
   SubscriptionGiftMessage: string
+  InviteSubscriptionGiftEnabled: boolean
+  InviteSubscriptionGiftPlanId: number
+  InviteSubscriptionGiftMaxCount: number
+  InviteSubscriptionGiftMessage: string
+  InviteeSubscriptionGiftEnabled: boolean
+  InviteeSubscriptionGiftPlanId: number
+  InviteeSubscriptionGiftMessage: string
   TopUpLink: string
   'general_setting.docs_link': string
   'quota_setting.enable_free_model_pre_consume': boolean

@@ -156,6 +156,15 @@ var SubscriptionGiftEnabled = false
 var SubscriptionGiftPlanId = 0
 var SubscriptionGiftMessage = "恭喜注册成功，已为你开通 {title} 订阅！"
 
+var InviteSubscriptionGiftEnabled = false
+var InviteSubscriptionGiftPlanId = 0
+var InviteSubscriptionGiftMaxCount = 1
+var InviteSubscriptionGiftMessage = "邀请好友注册成功，已为你开通 {title} 订阅！"
+
+var InviteeSubscriptionGiftEnabled = false
+var InviteeSubscriptionGiftPlanId = 0
+var InviteeSubscriptionGiftMessage = "欢迎加入！已为你开通 {title} 订阅！"
+
 var RetryTimes = 0
 
 //var RootUserEmail = ""

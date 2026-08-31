@@ -382,10 +382,11 @@ func findOrCreateWeChatMpUser(openID, nickname, affCode string) (*model.User, bo
 	// （Insert 内部会用 inviterId 参数发奖励，但不会回写字段，必须在此显式设置）
 	user.InviterId = inviterId
 
+	// Insert 已完成创建、边栏初始化与邀请奖励发放，
+	// 不可再调 FinalizeOAuthUserCreation，否则邀请奖励会重复发放。
 	if err := user.Insert(inviterId); err != nil {
 		return nil, false, err
 	}
-	user.FinalizeOAuthUserCreation(inviterId)
 
 	// 生成默认令牌（与 controller/oauth.go::HandleOAuth、controller/user.go::Register 保持一致）
 	// 受 GENERATE_DEFAULT_TOKEN 环境变量控制
@@ -489,7 +490,17 @@ func pushMpGroupQrCode(settings *system_setting.WeChatOAuthSettings, openID stri
 		return
 	}
 
-	mediaID, err := wechat_mp.UploadTempImage(accessToken, wechat_mp.GroupQRCodeImage(), "group_qrcode.jpg")
+	// 优先使用管理端上传的群二维码；未上传或数据异常时回退内嵌图
+	imageBytes := wechat_mp.GroupQRCodeImage()
+	filename := "group_qrcode.jpg"
+	if data, format := GetCustomQRCodeBytes("mp_group"); data != nil {
+		imageBytes = data
+		if ext, ok := qrCodeAllowedFormats[format]; ok {
+			filename = "group_qrcode" + ext
+		}
+	}
+
+	mediaID, err := wechat_mp.UploadTempImage(accessToken, imageBytes, filename)
 	if err != nil {
 		common.SysLog("push mp group qrcode: upload image failed: " + err.Error())
 		return

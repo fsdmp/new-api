@@ -57,6 +57,80 @@ const OtherSetting = () => {
     content: '',
   });
 
+  // 二维码管理（后台上传，免重打包替换）
+  const qrApiBase = import.meta.env.VITE_REACT_APP_SERVER_URL || '';
+  const siteQrUrl = `${(qrApiBase || window.location.origin).replace(
+    /\/$/,
+    '',
+  )}/api/qrcode/site`;
+  const [qrStatus, setQrStatus] = useState({ mp_group: false, site: false });
+  const [qrTs, setQrTs] = useState(Date.now());
+  const [qrUploading, setQrUploading] = useState({});
+  const mpQrInputRef = useRef(null);
+  const siteQrInputRef = useRef(null);
+
+  const loadQrStatus = async () => {
+    try {
+      const res = await API.get('/api/qrcode/status');
+      if (res.data.success) {
+        setQrStatus(res.data.data);
+      }
+    } catch (error) {
+      // 静默失败，不影响页面其他设置
+    }
+  };
+
+  useEffect(() => {
+    loadQrStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleQrFileChange = (name) => async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      showError(t('图片不能超过 2MB'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const image = ev.target.result;
+      if (typeof image !== 'string' || !image) return;
+      setQrUploading((prev) => ({ ...prev, [name]: true }));
+      try {
+        const res = await API.put(`/api/qrcode/${name}`, { image });
+        if (res.data.success) {
+          showSuccess(t('二维码已更新'));
+          setQrTs(Date.now());
+          await loadQrStatus();
+        } else {
+          showError(res.data.message);
+        }
+      } catch (error) {
+        showError(t('二维码更新失败'));
+      } finally {
+        setQrUploading((prev) => ({ ...prev, [name]: false }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeQr = async (name) => {
+    try {
+      const res = await API.delete(`/api/qrcode/${name}`);
+      if (res.data.success) {
+        showSuccess(name === 'site' ? t('已删除') : t('已恢复默认图片'));
+        setQrTs(Date.now());
+        await loadQrStatus();
+      } else {
+        showError(res.data.message);
+      }
+    } catch (error) {
+      showError(t('操作失败'));
+    }
+  };
+
   const updateOption = async (key, value) => {
     setLoading(true);
     const res = await API.put('/api/option/', {
@@ -540,6 +614,144 @@ const OtherSetting = () => {
               <Button onClick={submitFooter} loading={loadingInput['Footer']}>
                 {t('设置页脚')}
               </Button>
+            </Form.Section>
+          </Card>
+        </Form>
+        {/* 二维码管理 */}
+        <Form>
+          <Card>
+            <Form.Section text={t('二维码管理')}>
+              {/* 群二维码 */}
+              <div>
+                <Text strong>{t('群二维码')}</Text>
+                <div>
+                  <Text type='tertiary' size='small'>
+                    {t(
+                      '关注公众号后自动推送给新用户，同时用于文档下载页展示；未上传时使用内置图片',
+                    )}
+                  </Text>
+                </div>
+                <Space style={{ marginTop: 8 }} vertical align='start'>
+                  <Space>
+                    <img
+                      src={`${qrApiBase}/api/qrcode/mp_group?t=${qrTs}`}
+                      alt={t('群二维码')}
+                      style={{
+                        width: 120,
+                        height: 120,
+                        objectFit: 'contain',
+                        border: '1px solid var(--semi-color-border)',
+                        borderRadius: 6,
+                      }}
+                    />
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 8,
+                      }}
+                    >
+                      <input
+                        ref={mpQrInputRef}
+                        type='file'
+                        accept='image/jpeg,image/png'
+                        style={{ display: 'none' }}
+                        onChange={handleQrFileChange('mp_group')}
+                      />
+                      <Button
+                        loading={qrUploading['mp_group']}
+                        onClick={() => mpQrInputRef.current?.click()}
+                      >
+                        {qrStatus['mp_group']
+                          ? t('重新上传')
+                          : t('上传图片')}
+                      </Button>
+                      {qrStatus['mp_group'] && (
+                        <Button
+                          type='danger'
+                          onClick={() => removeQr('mp_group')}
+                        >
+                          {t('恢复默认图片')}
+                        </Button>
+                      )}
+                    </div>
+                  </Space>
+                </Space>
+              </div>
+              {/* 官网二维码 */}
+              <div>
+                <Text strong>{t('官网二维码')}</Text>
+                <div>
+                  <Text type='tertiary' size='small'>
+                    {t(
+                      '供外部官网等站点通过固定链接引用，替换图片后无需改动引用方',
+                    )}
+                  </Text>
+                </div>
+                <Space style={{ marginTop: 8 }} vertical align='start'>
+                  <Text copyable>{siteQrUrl}</Text>
+                  <Space>
+                    {qrStatus['site'] ? (
+                      <img
+                        src={`${qrApiBase}/api/qrcode/site?t=${qrTs}`}
+                        alt={t('官网二维码')}
+                        style={{
+                          width: 120,
+                          height: 120,
+                          objectFit: 'contain',
+                          border: '1px solid var(--semi-color-border)',
+                          borderRadius: 6,
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: 120,
+                          height: 120,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          border: '1px dashed var(--semi-color-border)',
+                          borderRadius: 6,
+                        }}
+                      >
+                        <Text type='tertiary'>{t('未上传')}</Text>
+                      </div>
+                    )}
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 8,
+                      }}
+                    >
+                      <input
+                        ref={siteQrInputRef}
+                        type='file'
+                        accept='image/jpeg,image/png'
+                        style={{ display: 'none' }}
+                        onChange={handleQrFileChange('site')}
+                      />
+                      <Button
+                        loading={qrUploading['site']}
+                        onClick={() => siteQrInputRef.current?.click()}
+                      >
+                        {qrStatus['site']
+                          ? t('重新上传')
+                          : t('上传图片')}
+                      </Button>
+                      {qrStatus['site'] && (
+                        <Button
+                          type='danger'
+                          onClick={() => removeQr('site')}
+                        >
+                          {t('删除图片')}
+                        </Button>
+                      )}
+                    </div>
+                  </Space>
+                </Space>
+              </div>
             </Form.Section>
           </Card>
         </Form>

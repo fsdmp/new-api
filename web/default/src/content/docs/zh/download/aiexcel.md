@@ -10,7 +10,7 @@
 
 软件目前处于内测阶段，欢迎加入产品内测群，享受种子用户专属福利。你的反馈对我们非常重要。
 
-![内测群二维码](/docs/images/aiexcel/wechat-qrcode.png)
+![内测群二维码](/api/qrcode/mp_group)
 
 ---
 

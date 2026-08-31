@@ -21,9 +21,12 @@ import type {
   ConfirmPaymentComplianceResponse,
   DeleteLogsResponse,
   FetchUpstreamRatiosRequest,
+  QRCodeName,
+  QRCodeStatusResponse,
   SystemOptionsResponse,
   UpdateOptionRequest,
   UpdateOptionResponse,
+  UpdateQRCodeRequest,
   UpstreamChannelsResponse,
   UpstreamRatiosResponse,
 } from './types'
@@ -72,5 +75,26 @@ export async function fetchUpstreamRatios(request: FetchUpstreamRatiosRequest) {
     '/api/ratio_sync/fetch',
     request
   )
+  return res.data
+}
+
+export async function getQRCodeStatus() {
+  const res = await api.get<QRCodeStatusResponse>('/api/qrcode/status')
+  return res.data
+}
+
+export async function uploadQRCode(
+  name: QRCodeName,
+  request: UpdateQRCodeRequest
+) {
+  const res = await api.put<UpdateOptionResponse>(
+    `/api/qrcode/${name}`,
+    request
+  )
+  return res.data
+}
+
+export async function deleteQRCode(name: QRCodeName) {
+  const res = await api.delete<UpdateOptionResponse>(`/api/qrcode/${name}`)
   return res.data
 }

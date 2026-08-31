@@ -10,7 +10,7 @@ An AI assistant that works directly inside Excel — open the side panel and cha
 
 The software is currently in beta. Join our product testing group to enjoy early adopter perks. Your feedback matters to us.
 
-![WeChat QR Code](/docs/images/aiexcel/wechat-qrcode.png)
+![WeChat QR Code](/api/qrcode/mp_group)
 
 ---
 

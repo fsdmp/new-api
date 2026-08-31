@@ -32,6 +32,22 @@ func isPaymentComplianceOptionKey(key string) bool {
 	return strings.HasPrefix(key, "payment_setting.compliance_")
 }
 
+// qrCodeImageOptionKeys 管理端上传的二维码图片（完整 data URL，可达 2MB+），
+// 不随 /api/option/ 全量下发，经 /api/qrcode/* 专用接口访问。
+var qrCodeImageOptionKeys = []string{
+	"MPGroupQRCode",
+	"SiteQRCode",
+}
+
+func isQRCodeImageOptionKey(key string) bool {
+	for _, k := range qrCodeImageOptionKeys {
+		if k == key {
+			return true
+		}
+	}
+	return false
+}
+
 func isPositiveOptionValue(value string) bool {
 	intValue, err := strconv.Atoi(strings.TrimSpace(value))
 	if err == nil {
@@ -84,7 +100,8 @@ func GetOptions(c *gin.Context) {
 			strings.HasSuffix(k, "Secret") ||
 			strings.HasSuffix(k, "Key") ||
 			strings.HasSuffix(k, "secret") ||
-			strings.HasSuffix(k, "api_key")
+			strings.HasSuffix(k, "api_key") ||
+			isQRCodeImageOptionKey(k)
 		if isSensitiveKey {
 			continue
 		}

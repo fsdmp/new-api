@@ -41,6 +41,13 @@ export default function SettingsCreditLimit(props) {
     SubscriptionGiftEnabled: false,
     SubscriptionGiftPlanId: '',
     SubscriptionGiftMessage: '',
+    InviteSubscriptionGiftEnabled: false,
+    InviteSubscriptionGiftPlanId: '',
+    InviteSubscriptionGiftMaxCount: '',
+    InviteSubscriptionGiftMessage: '',
+    InviteeSubscriptionGiftEnabled: false,
+    InviteeSubscriptionGiftPlanId: '',
+    InviteeSubscriptionGiftMessage: '',
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
@@ -260,6 +267,107 @@ export default function SettingsCreditLimit(props) {
             <Row>
               <Button size='default' onClick={onSubmit}>
                 {t('保存赠送订阅设置')}
+              </Button>
+            </Row>
+          </Form.Section>
+
+          <Form.Section text={t('邀请送订阅')}>
+            <Row>
+              <Col xs={24} sm={12} md={8} lg={8} xl={6}>
+                <Form.Switch
+                  label={t('启用邀请送订阅')}
+                  field={'InviteSubscriptionGiftEnabled'}
+                  extraText={t(
+                    '开启后，受邀用户注册成功时，邀请人自动获赠一份订阅（需完成合规确认）',
+                  )}
+                  onChange={(value) =>
+                    updateField('InviteSubscriptionGiftEnabled', value)
+                  }
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={6}>
+                <Form.InputNumber
+                  label={t('赠送订阅套餐 ID')}
+                  field={'InviteSubscriptionGiftPlanId'}
+                  step={1}
+                  min={0}
+                  placeholder={t('例如：1')}
+                  onChange={(value) =>
+                    updateField('InviteSubscriptionGiftPlanId', value ?? '')
+                  }
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={6}>
+                <Form.InputNumber
+                  label={t('每位邀请人最多获赠份数')}
+                  field={'InviteSubscriptionGiftMaxCount'}
+                  step={1}
+                  min={0}
+                  extraText={t('0 表示不赠送')}
+                  placeholder={t('例如：1')}
+                  onChange={(value) =>
+                    updateField('InviteSubscriptionGiftMaxCount', value ?? '')
+                  }
+                />
+              </Col>
+            </Row>
+            <Row>
+              <Col>
+                <Form.Input
+                  label={t('赠送文案')}
+                  field={'InviteSubscriptionGiftMessage'}
+                  extraText={t('{title} 会被替换为套餐名称')}
+                  placeholder={t(
+                    '邀请好友注册成功，已为你开通 {title} 订阅！',
+                  )}
+                  onChange={(value) =>
+                    updateField('InviteSubscriptionGiftMessage', value)
+                  }
+                />
+              </Col>
+            </Row>
+            <Row>
+              <Col xs={24} sm={12} md={8} lg={8} xl={6}>
+                <Form.Switch
+                  label={t('受邀用户也送订阅')}
+                  field={'InviteeSubscriptionGiftEnabled'}
+                  extraText={t(
+                    '开启后，使用邀请码注册的用户本人也获赠一份订阅（与注册赠送可叠加）',
+                  )}
+                  onChange={(value) =>
+                    updateField('InviteeSubscriptionGiftEnabled', value)
+                  }
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={6}>
+                <Form.InputNumber
+                  label={t('受邀用户赠送套餐 ID')}
+                  field={'InviteeSubscriptionGiftPlanId'}
+                  step={1}
+                  min={0}
+                  placeholder={t('例如：1')}
+                  onChange={(value) =>
+                    updateField('InviteeSubscriptionGiftPlanId', value ?? '')
+                  }
+                />
+              </Col>
+            </Row>
+            <Row>
+              <Col>
+                <Form.Input
+                  label={t('受邀用户赠送文案')}
+                  field={'InviteeSubscriptionGiftMessage'}
+                  extraText={t('{title} 会被替换为套餐名称')}
+                  placeholder={t('欢迎加入！已为你开通 {title} 订阅！')}
+                  onChange={(value) =>
+                    updateField('InviteeSubscriptionGiftMessage', value)
+                  }
+                />
+              </Col>
+            </Row>
+            <Row>
+              <Button size='default' onClick={onSubmit}>
+                {t('保存邀请送订阅设置')}
               </Button>
             </Row>
           </Form.Section>

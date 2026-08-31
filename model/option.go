@@ -144,6 +144,13 @@ func InitOptionMap() {
 	common.OptionMap["SubscriptionGiftEnabled"] = strconv.FormatBool(common.SubscriptionGiftEnabled)
 	common.OptionMap["SubscriptionGiftPlanId"] = strconv.Itoa(common.SubscriptionGiftPlanId)
 	common.OptionMap["SubscriptionGiftMessage"] = common.SubscriptionGiftMessage
+	common.OptionMap["InviteSubscriptionGiftEnabled"] = strconv.FormatBool(common.InviteSubscriptionGiftEnabled)
+	common.OptionMap["InviteSubscriptionGiftPlanId"] = strconv.Itoa(common.InviteSubscriptionGiftPlanId)
+	common.OptionMap["InviteSubscriptionGiftMaxCount"] = strconv.Itoa(common.InviteSubscriptionGiftMaxCount)
+	common.OptionMap["InviteSubscriptionGiftMessage"] = common.InviteSubscriptionGiftMessage
+	common.OptionMap["InviteeSubscriptionGiftEnabled"] = strconv.FormatBool(common.InviteeSubscriptionGiftEnabled)
+	common.OptionMap["InviteeSubscriptionGiftPlanId"] = strconv.Itoa(common.InviteeSubscriptionGiftPlanId)
+	common.OptionMap["InviteeSubscriptionGiftMessage"] = common.InviteeSubscriptionGiftMessage
 	common.OptionMap["ModelRequestRateLimitCount"] = strconv.Itoa(setting.ModelRequestRateLimitCount)
 	common.OptionMap["ModelRequestRateLimitDurationMinutes"] = strconv.Itoa(setting.ModelRequestRateLimitDurationMinutes)
 	common.OptionMap["ModelRequestRateLimitSuccessCount"] = strconv.Itoa(setting.ModelRequestRateLimitSuccessCount)
@@ -537,6 +544,20 @@ func updateOptionMap(key string, value string) (err error) {
 		common.SubscriptionGiftPlanId, _ = strconv.Atoi(value)
 	case "SubscriptionGiftMessage":
 		common.SubscriptionGiftMessage = value
+	case "InviteSubscriptionGiftEnabled":
+		common.InviteSubscriptionGiftEnabled = value == "true"
+	case "InviteSubscriptionGiftPlanId":
+		common.InviteSubscriptionGiftPlanId, _ = strconv.Atoi(value)
+	case "InviteSubscriptionGiftMaxCount":
+		common.InviteSubscriptionGiftMaxCount, _ = strconv.Atoi(value)
+	case "InviteSubscriptionGiftMessage":
+		common.InviteSubscriptionGiftMessage = value
+	case "InviteeSubscriptionGiftEnabled":
+		common.InviteeSubscriptionGiftEnabled = value == "true"
+	case "InviteeSubscriptionGiftPlanId":
+		common.InviteeSubscriptionGiftPlanId, _ = strconv.Atoi(value)
+	case "InviteeSubscriptionGiftMessage":
+		common.InviteeSubscriptionGiftMessage = value
 	case "ModelRequestRateLimitCount":
 		setting.ModelRequestRateLimitCount, _ = strconv.Atoi(value)
 	case "ModelRequestRateLimitDurationMinutes":

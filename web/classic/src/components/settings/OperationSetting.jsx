@@ -44,6 +44,15 @@ const OperationSetting = () => {
     SubscriptionGiftPlanId: 0,
     SubscriptionGiftMessage: '',
 
+    /* 邀请送订阅 */
+    InviteSubscriptionGiftEnabled: false,
+    InviteSubscriptionGiftPlanId: 0,
+    InviteSubscriptionGiftMaxCount: 1,
+    InviteSubscriptionGiftMessage: '',
+    InviteeSubscriptionGiftEnabled: false,
+    InviteeSubscriptionGiftPlanId: 0,
+    InviteeSubscriptionGiftMessage: '',
+
     /* 通用设置 */
     TopUpLink: '',
     'general_setting.docs_link': '',

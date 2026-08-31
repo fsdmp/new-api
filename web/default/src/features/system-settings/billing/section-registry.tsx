@@ -64,6 +64,18 @@ const BILLING_SECTIONS = [
           SubscriptionGiftEnabled: settings.SubscriptionGiftEnabled,
           SubscriptionGiftPlanId: settings.SubscriptionGiftPlanId,
           SubscriptionGiftMessage: settings.SubscriptionGiftMessage,
+          InviteSubscriptionGiftEnabled: settings.InviteSubscriptionGiftEnabled,
+          InviteSubscriptionGiftPlanId: settings.InviteSubscriptionGiftPlanId,
+          InviteSubscriptionGiftMaxCount:
+            settings.InviteSubscriptionGiftMaxCount,
+          InviteSubscriptionGiftMessage:
+            settings.InviteSubscriptionGiftMessage,
+          InviteeSubscriptionGiftEnabled:
+            settings.InviteeSubscriptionGiftEnabled,
+          InviteeSubscriptionGiftPlanId:
+            settings.InviteeSubscriptionGiftPlanId,
+          InviteeSubscriptionGiftMessage:
+            settings.InviteeSubscriptionGiftMessage,
           TopUpLink: settings.TopUpLink,
           general_setting: {
             docs_link: settings['general_setting.docs_link'],

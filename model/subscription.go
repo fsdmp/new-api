@@ -253,7 +253,7 @@ type UserSubscription struct {
 	EndTime   int64  `json:"end_time" gorm:"bigint;index;index:idx_user_sub_active,priority:3"`
 	Status    string `json:"status" gorm:"type:varchar(32);index;index:idx_user_sub_active,priority:2"` // active/expired/cancelled
 
-	Source string `json:"source" gorm:"type:varchar(32);default:'order'"` // order/admin
+	Source string `json:"source" gorm:"type:varchar(32);default:'order'"` // order/admin/register/invite
 
 	LastResetTime int64 `json:"last_reset_time" gorm:"type:bigint;default:0"`
 	NextResetTime int64 `json:"next_reset_time" gorm:"type:bigint;default:0;index"`
@@ -720,6 +720,93 @@ func GiveSubscriptionGift(userId int, planId int, isNewUser bool) (bool, string,
 		_ = UpdateUserGroupCache(userId, plan.UpgradeGroup)
 	}
 	return gifted, planTitle, message, nil
+}
+
+// GiveInviteSubscriptionGift 邀请新用户注册成功后，给邀请人赠送一份订阅。
+// 每个邀请人最多可获赠 maxCount 份（按 user_id + source='invite' 计数），
+// maxCount <= 0 视为不发放。事务内锁邀请人行 + 计数做并发兜底去重。
+// 返回 (gifted, planTitle, err)：达上限或未开启时 gifted=false。
+func GiveInviteSubscriptionGift(inviterId int, planId int, maxCount int) (bool, string, error) {
+	if inviterId <= 0 || planId <= 0 || maxCount <= 0 {
+		return false, "", nil
+	}
+	plan, err := GetSubscriptionPlanById(planId)
+	if err != nil {
+		return false, "", err
+	}
+	gifted := false
+	planTitle := ""
+	err = DB.Transaction(func(tx *gorm.DB) error {
+		var inviter User
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").Where("id = ?", inviterId).First(&inviter).Error; err != nil {
+			return err
+		}
+		var count int64
+		if err := tx.Model(&UserSubscription{}).
+			Where("user_id = ? AND source = ?", inviterId, "invite").
+			Count(&count).Error; err != nil {
+			return err
+		}
+		if count >= int64(maxCount) {
+			return nil // 已达获赠上限，跳过
+		}
+		if _, err := CreateUserSubscriptionFromPlanTx(tx, inviterId, plan, "invite"); err != nil {
+			return err
+		}
+		gifted = true
+		planTitle = plan.Title
+		return nil
+	})
+	if err != nil {
+		return false, "", err
+	}
+	if gifted && strings.TrimSpace(plan.UpgradeGroup) != "" {
+		_ = UpdateUserGroupCache(inviterId, plan.UpgradeGroup)
+	}
+	return gifted, planTitle, nil
+}
+
+// GiveInviteeSubscriptionGift 受邀用户注册成功后赠送一份订阅。
+// 一个用户最多获赠一次（user_id + source='invite' 计数兜底）。
+// 返回 (gifted, planTitle, err)：未开启或已获赠时 gifted=false。
+func GiveInviteeSubscriptionGift(userId int, planId int) (bool, string, error) {
+	if userId <= 0 || planId <= 0 {
+		return false, "", nil
+	}
+	plan, err := GetSubscriptionPlanById(planId)
+	if err != nil {
+		return false, "", err
+	}
+	gifted := false
+	planTitle := ""
+	err = DB.Transaction(func(tx *gorm.DB) error {
+		var user User
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").Where("id = ?", userId).First(&user).Error; err != nil {
+			return err
+		}
+		var count int64
+		if err := tx.Model(&UserSubscription{}).
+			Where("user_id = ? AND source = ?", userId, "invite").
+			Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return nil // 已获赠过，跳过（并发兜底）
+		}
+		if _, err := CreateUserSubscriptionFromPlanTx(tx, userId, plan, "invite"); err != nil {
+			return err
+		}
+		gifted = true
+		planTitle = plan.Title
+		return nil
+	})
+	if err != nil {
+		return false, "", err
+	}
+	if gifted && strings.TrimSpace(plan.UpgradeGroup) != "" {
+		_ = UpdateUserGroupCache(userId, plan.UpgradeGroup)
+	}
+	return gifted, planTitle, nil
 }
 
 func calcSubscriptionBalanceQuota(priceAmount float64) (int, error) {

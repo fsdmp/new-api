@@ -34,6 +34,8 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/about", controller.GetAbout)
 		//apiRouter.GET("/midjourney", controller.GetMidjourney)
 		apiRouter.GET("/home_page_content", controller.GetHomePageContent)
+		// QR code images (public; admin-uploaded with embedded fallback)
+		apiRouter.GET("/qrcode/:name", controller.GetQRCodeImage)
 		apiRouter.GET("/pricing", middleware.HeaderNavModuleAuth("pricing"), controller.GetPricing)
 		perfMetricsRoute := apiRouter.Group("/perf-metrics")
 		perfMetricsRoute.Use(middleware.HeaderNavModulePublicOrUserAuth("pricing"))
@@ -222,6 +224,15 @@ func SetApiRouter(router *gin.Engine) {
 			optionRoute.POST("/waffo-pancake/save", controller.SaveWaffoPancake)
 			optionRoute.POST("/waffo-pancake/subscription-product", controller.CreateWaffoPancakeSubscriptionProduct)
 			optionRoute.POST("/waffo-pancake/subscription-product-options", controller.ListWaffoPancakeSubscriptionProductOptions)
+		}
+
+		// QR code management (root only)
+		qrcodeRoute := apiRouter.Group("/qrcode")
+		qrcodeRoute.Use(middleware.RootAuth())
+		{
+			qrcodeRoute.GET("/status", controller.GetQRCodeStatus)
+			qrcodeRoute.PUT("/:name", controller.UploadQRCode)
+			qrcodeRoute.DELETE("/:name", controller.DeleteQRCode)
 		}
 
 		// Custom OAuth provider management (root only)

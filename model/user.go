@@ -348,6 +348,38 @@ func inviteUser(inviterId int) (err error) {
 	return nil
 }
 
+// giveInviteSubscriptionGift 邀请送订阅奖励入口：成功赠送则给邀请人记日志，
+// 失败仅记系统日志，不影响注册流程。达获赠上限或未开启时静默跳过。
+func giveInviteSubscriptionGift(inviterId int) {
+	if !common.InviteSubscriptionGiftEnabled || common.InviteSubscriptionGiftPlanId <= 0 {
+		return
+	}
+	gifted, planTitle, err := GiveInviteSubscriptionGift(inviterId, common.InviteSubscriptionGiftPlanId, common.InviteSubscriptionGiftMaxCount)
+	if err != nil {
+		common.SysError(fmt.Sprintf("give invite subscription gift failed: %v", err))
+		return
+	}
+	if gifted {
+		RecordLog(inviterId, LogTypeSystem, strings.ReplaceAll(common.InviteSubscriptionGiftMessage, "{title}", planTitle))
+	}
+}
+
+// giveInviteeSubscriptionGift 受邀用户送订阅奖励入口：成功赠送则给用户记日志，
+// 失败仅记系统日志，不影响注册流程。未开启或已获赠时静默跳过。
+func giveInviteeSubscriptionGift(userId int) {
+	if !common.InviteeSubscriptionGiftEnabled || common.InviteeSubscriptionGiftPlanId <= 0 {
+		return
+	}
+	gifted, planTitle, err := GiveInviteeSubscriptionGift(userId, common.InviteeSubscriptionGiftPlanId)
+	if err != nil {
+		common.SysError(fmt.Sprintf("give invitee subscription gift failed: %v", err))
+		return
+	}
+	if gifted {
+		RecordLog(userId, LogTypeSystem, strings.ReplaceAll(common.InviteeSubscriptionGiftMessage, "{title}", planTitle))
+	}
+}
+
 func (user *User) TransferAffQuotaToQuota(quota int) error {
 	// 检查quota是否小于最小额度
 	if float64(quota) < common.QuotaPerUnit {
@@ -437,6 +469,8 @@ func (user *User) Insert(inviterId int) error {
 			RecordLog(inviterId, LogTypeSystem, fmt.Sprintf("邀请用户赠送 %s", logger.LogQuota(common.QuotaForInviter)))
 			_ = inviteUser(inviterId)
 		}
+		giveInviteSubscriptionGift(inviterId)
+		giveInviteeSubscriptionGift(user.Id)
 	}
 	return nil
 }
@@ -497,6 +531,8 @@ func (user *User) FinalizeOAuthUserCreation(inviterId int) {
 			RecordLog(inviterId, LogTypeSystem, fmt.Sprintf("邀请用户赠送 %s", logger.LogQuota(common.QuotaForInviter)))
 			_ = inviteUser(inviterId)
 		}
+		giveInviteSubscriptionGift(inviterId)
+		giveInviteeSubscriptionGift(user.Id)
 	}
 }
 

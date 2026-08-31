@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { SystemInfoSection } from '../general/system-info-section'
+import { QrcodeSection } from '../general/qrcode-section'
 import {
   parseHeaderNavModules,
   parseSidebarModulesAdmin,
@@ -52,6 +53,11 @@ const SITE_SECTIONS = [
         }}
       />
     ),
+  },
+  {
+    id: 'qrcode',
+    titleKey: 'QR Code Management',
+    build: () => <QrcodeSection />,
   },
   {
     id: 'notice',
