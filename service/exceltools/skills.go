@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -165,12 +166,42 @@ func SaveExcelSkill(orgId string, userId int, parsed *ParsedSkill, partitionBy s
 	if partitionBy != "organization" {
 		partitionBy = "account"
 	}
-	existing, err := model.ExcelSkillNameExists(orgId, parsed.Name)
-	if err != nil {
+	existing, err := model.GetExcelSkillByName(orgId, parsed.Name)
+	if err != nil && !errors.Is(err, model.ErrExcelSkillNotFound) {
 		return nil, err
 	}
-	if existing && !overwrite {
+	if existing != nil && !overwrite {
 		return nil, ErrSkillNameConflict
+	}
+	now := common.GetTimestamp()
+
+	// Overwrite replaces the row in place — same id keeps plugin-side
+	// download caches stable, and the (org_id, name) unique index stays put.
+	if existing != nil {
+		zipPath := existing.ZipPath
+		if zipPath == "" {
+			zipPath = ExcelSkillBodyPath(existing.Id)
+		}
+		if err := os.MkdirAll(filepath.Dir(zipPath), 0o755); err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(zipPath, parsed.ZipBytes, 0o644); err != nil {
+			return nil, err
+		}
+		updates := map[string]interface{}{
+			"description":   parsed.Description,
+			"instructions":  parsed.Instructions,
+			"zip_path":      zipPath,
+			"size_bytes":    int64(len(parsed.ZipBytes)),
+			"enabled":       true,
+			"partition_by":  partitionBy,
+			"owner_user_id": userId,
+			"updated_at":    now,
+		}
+		if err := model.UpdateExcelSkill(existing.Id, updates); err != nil {
+			return nil, err
+		}
+		return model.GetExcelSkill(orgId, existing.Id)
 	}
 
 	id, err := NewExcelSkillID()
@@ -185,7 +216,6 @@ func SaveExcelSkill(orgId string, userId int, parsed *ParsedSkill, partitionBy s
 		return nil, err
 	}
 
-	now := common.GetTimestamp()
 	row := &model.ExcelSkill{
 		Id:           id,
 		OrgId:        orgId,
@@ -204,6 +234,7 @@ func SaveExcelSkill(orgId string, userId int, parsed *ParsedSkill, partitionBy s
 	}
 	if err := model.CreateExcelSkill(row); err != nil {
 		os.Remove(bodyPath)
+		os.Remove(filepath.Dir(bodyPath)) // empty dir cleanup
 		return nil, err
 	}
 	return row, nil

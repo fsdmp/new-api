@@ -61,6 +61,22 @@ func GetExcelSkill(orgId, id string) (*ExcelSkill, error) {
 	return &s, nil
 }
 
+// GetExcelSkillByName resolves the org+name unique row (overwrite target).
+func GetExcelSkillByName(orgId, name string) (*ExcelSkill, error) {
+	if name == "" || DB == nil {
+		return nil, ErrExcelSkillNotFound
+	}
+	var s ExcelSkill
+	err := DB.Where("org_id = ? AND name = ?", orgId, name).First(&s).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrExcelSkillNotFound
+		}
+		return nil, err
+	}
+	return &s, nil
+}
+
 // ListExcelSkillsForUser returns the skills an add-in user may see: their own
 // account-partitioned uploads plus everything organization-partitioned.
 func ListExcelSkillsForUser(orgId string, userId int) ([]*ExcelSkill, error) {
