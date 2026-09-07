@@ -7,6 +7,7 @@ import {
   Input,
   InputNumber,
   Row,
+  Select,
   Spin,
   Switch,
   TextArea,
@@ -41,6 +42,13 @@ export default function SettingsExcel(props) {
     'excel_tmp_key.quota': 500000,
     'excel_version_check.minimum_versions': '{}',
     'excel_model_list.models': '[]',
+    'excel_tools.mode': 'strip',
+    'excel_tools.debug_endpoints': false,
+    'excel_tools.log_body_max_bytes': 2048,
+    'excel_tools.search': '',
+    'excel_tools.fetch': '',
+    'excel_tools.sandbox': '',
+    'excel_tools.loop': '',
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
@@ -350,6 +358,105 @@ export default function SettingsExcel(props) {
                   onChange={handleFieldChange(
                     'excel_version_check.minimum_versions',
                   )}
+                />
+              </Col>
+            </Row>
+          </Form.Section>
+
+          <Form.Section text={t('Excel Server Tools（联网/抓取/沙箱）')}>
+            <Banner
+              type='info'
+              description={t(
+                'web_search / web_fetch / code_execution 三项 server tool 的网关内执行配置。模式：off=发布前行为，strip=剥离工具声明（安全默认），full=注入真实 schema 并在网关内执行。修改保存后约 1 分钟内自动生效，无需重启。',
+              )}
+              style={{ marginBottom: 16 }}
+            />
+            <Row gutter={16}>
+              <Col xs={24} sm={12} md={8}>
+                <Form.Select
+                  field={'excel_tools.mode'}
+                  label={t('模式')}
+                  extraText={t(
+                    'full 生效前提：搜索已配置 api_keys，沙箱已部署（见下方 sandbox 配置）',
+                  )}
+                  size='default'
+                  onChange={handleFieldChange('excel_tools.mode')}
+                >
+                  <Select.Option value='off'>
+                    off（回滚到发布前行为）
+                  </Select.Option>
+                  <Select.Option value='strip'>
+                    strip（剥离工具，安全默认）
+                  </Select.Option>
+                  <Select.Option value='full'>full（完整能力）</Select.Option>
+                </Form.Select>
+              </Col>
+              <Col xs={24} sm={12} md={8}>
+                <Form.Switch
+                  field={'excel_tools.debug_endpoints'}
+                  label={t('调试端点')}
+                  extraText={t(
+                    '开启后 POST /excel/api/tools/{web_search|web_fetch|code_execution} 可直连执行单个工具（联调用）',
+                  )}
+                  size='default'
+                  checkedText='｜'
+                  uncheckedText='〇'
+                  onChange={handleFieldChange('excel_tools.debug_endpoints')}
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8}>
+                <Form.InputNumber
+                  field={'excel_tools.log_body_max_bytes'}
+                  label={t('请求体日志截断')}
+                  extraText={t('字节；0=不截断，负数=关闭请求体日志')}
+                  min={-1}
+                  onChange={handleFieldChange(
+                    'excel_tools.log_body_max_bytes',
+                  )}
+                />
+              </Col>
+            </Row>
+            <Row gutter={16}>
+              <Col xs={24} lg={12}>
+                <Form.TextArea
+                  field={'excel_tools.search'}
+                  label={t('搜索配置（JSON）')}
+                  placeholder={
+                    '{"provider":"zhipu","api_keys":{"zhipu":"key"},"max_results":5,"daily_quota":50}'
+                  }
+                  rows={5}
+                  onChange={handleFieldChange('excel_tools.search')}
+                />
+              </Col>
+              <Col xs={24} lg={12}>
+                <Form.TextArea
+                  field={'excel_tools.fetch'}
+                  label={t('抓取配置（JSON）')}
+                  placeholder={
+                    '{"timeout_sec":15,"max_body_bytes":5242880,"daily_quota":100}'
+                  }
+                  rows={5}
+                  onChange={handleFieldChange('excel_tools.fetch')}
+                />
+              </Col>
+              <Col xs={24} lg={12}>
+                <Form.TextArea
+                  field={'excel_tools.sandbox'}
+                  label={t('沙箱配置（JSON）')}
+                  placeholder={
+                    '{"enabled":false,"nsjail_path":"","rootfs_path":"","timeout_sec":30,"max_concurrent":4,"daily_quota":50}'
+                  }
+                  rows={5}
+                  onChange={handleFieldChange('excel_tools.sandbox')}
+                />
+              </Col>
+              <Col xs={24} lg={12}>
+                <Form.TextArea
+                  field={'excel_tools.loop'}
+                  label={t('工具循环配置（JSON）')}
+                  placeholder={'{"max_iterations":5,"ping_interval_sec":2}'}
+                  rows={5}
+                  onChange={handleFieldChange('excel_tools.loop')}
                 />
               </Col>
             </Row>
