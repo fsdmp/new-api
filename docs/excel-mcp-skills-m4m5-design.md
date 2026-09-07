@@ -188,6 +188,42 @@ M5：
 4. 恶意 zip（../路径、超大）→ 400；
 5. 纯文本对话零回归探针 2 条。
 
+## 5.1 实施记录（2026-09-07，网关侧已上线）
+
+发布：v20260907-1854（8a38b516）+ v20260907-1916（ac992711 修复覆盖上传）。
+
+**服务端验收（生产实测，全部通过）：**
+- M4 注册表：deepwiki 上游实探 3 工具回传；`tool_policies.blocked` 工具带
+  `effective_max_permission:"blocked"` 标记；死上游出现在列表但 tools=[]；
+  `/mcp-registry/v0/servers` → `{"servers":[]}`；
+- M4 代理：initialize + tools/call（read_wiki_structure）经网关真实回数据
+  （SSE 流式响应兼容）；死上游 → 502 upstream_error；未知 server → 404；
+  方法白名单外（resources/list）→ invalid_request；未认证 → 401；
+- M5 上传：合法 zip 200（skill_ 前缀 id）；同名 409 name_conflict；
+  overwrite=true 原行覆盖（同 id，updated_at 刷新）；`../` 路径 400；
+  缺 SKILL.md 400；
+- M5 读取：list-skills / instructions / download 三端点正常，download
+  字节级等于上传 zip；跨用户（account 分区）list 不可见、instructions/download
+  404；跨 org → []；管理端点无会话 401；
+- 回归：/excel/v1/messages 文本探针通过（thinking+text 块正常）；
+- 管理面板：MCP 开关 + 服务器 JSON TextArea + 技能管理卡片（上传/可见性/
+  启停/删除）已编译进 classic 主题；选项 `excel_mcp.*` 行级配置 60 秒拾取实测有效。
+
+**与设计的偏差：**
+1. blocked 策略=标记不下发删除：注册表保留该工具但带
+   `effective_max_permission:"blocked"`，由插件端拒绝执行（与 claude.ai 行为一致），
+   而非网关侧隐藏（§2.1 原文为"隐藏"，实做为标记）；
+2. overwrite 覆盖语义改为**原行替换**（保持 id 与 zip 路径不变）——初版
+   新建行撞 `(org_id, name)` 唯一索引返回 api_error，ac992711 修复；
+3. org+name 唯一为**组织级**约束：不同用户不能各自建同名技能（B 上传 A
+   已占用的名字会 409）——符合 claude.ai 语义，管理上需知悉；
+4. 插件端（真机）验收待 cc-excel-web 重新构建部署后进行
+   （build-plugin.mjs 已注入 `VITE_INTERNAL_ORG_UUID=ccexcel`，本地构建产物
+   已验证）。
+
+**生产配置终态：** `excel_mcp.enabled=true`，servers 仅 deepwiki
+（无 blocked 策略）；验收用 token/技能行/测试 zip 已全部清理。
+
 ## 6. 工作量
 
 | 项 | 估算 |
