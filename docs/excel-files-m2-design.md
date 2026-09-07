@@ -1,6 +1,6 @@
 # Excel 网关文件上传（M2）技术设计
 
-> 日期：2026-09-07 · 状态：**待评审**
+> 日期：2026-09-07 · 状态：**已上线**（v20260907-1715 / commit 16c895e8，生产验收 §10 全通过，偏差见下）
 > 前置：M1 server tools 已上线（`docs/excel-server-tools-m1-design.md`，方案 A，工具循环/沙箱生产在用）
 > 需求来源：`~/Downloads/capability-gap-analysis.md` §4.1、§9.3（S3 + S3-V）
 > 结论：**网关自建文件服务**（原路线 B）+ image block 放行 + vision 路由 + 沙箱 /files/input 联动
@@ -205,3 +205,20 @@ TTL 扫描（goroutine ticker 6h + 启动即扫一次）删过期：DB 行 + 本
 3. **vision 回退模型**：当前接的 GLM 渠道是否有 vision 别名（glm-4.6 不确定，需渠道侧确认）；
    没有则 S3-V 的"DeepSeek 传图自动切换"暂不生效（保留机制，配置空则不切换）；
 4. TTL 30 天 / 配额 100 个 500MB 的默认值是否符合产品预期。
+
+## 13. 实施记录（2026-09-07 上线）
+
+验收 §10 全部通过（生产 8.140.235.234，v20260907-1715 / commit 16c895e8）：
+上传 CSV/PDF → 列表 → 下载 md5 一致 → 跨用户 404（下载/删除均不能越权）→
+code_execution file_ids 沙箱内 pandas+pdfplumber 正常读取 → 坏 file_id 带内提示不中断 →
+图片消息 GLM 正确识别颜色 → document 块提示注入后模型自发描述 file_ids 用法 →
+纯文本探针零回归 → API 删除联动磁盘本体+沙箱链接 → TTL 回拨后清扫任务删净 DB 行/本体/链接。
+
+与设计的偏差：
+1. **TokenAuth 提前**：`/excel/v1` 组 TokenAuth 移到 ExcelRequestAdapter 之前（adapter 需
+   `c.GetInt("id")` 做 document 属主判定；TokenAuth 不读 body，顺序无副作用）；
+2. **vision 默认 true**：用户确认"当前对外的模型都支持图片"→ `Vision *bool` 三态，
+   缺省=支持，存量模型列表配置零迁移即生效；
+3. 评审点 2 维持"图片允许上传"（沙箱 OCR 场景）；评审点 3 当前生产模型列表全部
+   vision=true，S3-V 切换机制就绪但未触发（无文本模型）。
+
