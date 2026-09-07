@@ -54,13 +54,18 @@ func ResolveSandboxPaths() (nsjailPath, rootfsPath string) {
 	return
 }
 
-// SandboxAvailable reports whether the nsjail binary and rootfs are deployed.
+// SandboxAvailable reports whether the configured runner's artifacts are
+// deployed: nsjail needs the binary + rootfs; native needs only the rootfs
+// (isolation is pure Go namespaces).
 func SandboxAvailable() bool {
 	cfg := GetSandboxConfig()
 	if !cfg.Enabled {
 		return false
 	}
 	nsjailPath, rootfsPath := ResolveSandboxPaths()
+	if cfg.Runner == RunnerNative {
+		return cachedExists(rootfsPath)
+	}
 	return cachedExists(nsjailPath) && cachedExists(rootfsPath)
 }
 

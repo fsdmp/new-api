@@ -42,13 +42,23 @@ type FetchConfig struct {
 }
 
 type SandboxConfig struct {
-	Enabled       bool   `json:"enabled"`
+	Enabled bool `json:"enabled"`
+	// Runner selects the isolation backend: "nsjail" (external binary) or
+	// "native" (Go namespace runner, no external binary — bare-metal hosts
+	// where shipping a static nsjail is undesirable). Default "nsjail".
+	Runner        string `json:"runner"`
 	NsjailPath    string `json:"nsjail_path"`    // default: <data>/sandbox/nsjail
 	RootfsPath    string `json:"rootfs_path"`    // default: <data>/sandbox/rootfs
 	TimeoutSec    int    `json:"timeout_sec"`    // default 30
 	MaxConcurrent int    `json:"max_concurrent"` // global concurrent runs, default 4
 	DailyQuota    int    `json:"daily_quota"`    // default 50
 }
+
+// Sandbox runner backend values.
+const (
+	RunnerNsjail = "nsjail"
+	RunnerNative = "native"
+)
 
 type LoopConfig struct {
 	MaxIterations   int `json:"max_iterations"`    // default 5 (includes rejection turn)
@@ -87,6 +97,7 @@ const defaultFetchJSON = `{
 
 const defaultSandboxJSON = `{
   "enabled": false,
+  "runner": "nsjail",
   "nsjail_path": "",
   "rootfs_path": "",
   "timeout_sec": 30,
@@ -204,6 +215,9 @@ func GetFetchConfig() FetchConfig {
 // GetSandboxConfig returns the sandbox config with defaults applied.
 func GetSandboxConfig() SandboxConfig {
 	return sandboxCache.get(defaultToolsSettings.Sandbox, func(c *SandboxConfig) {
+		if c.Runner == "" {
+			c.Runner = RunnerNsjail
+		}
 		if c.TimeoutSec <= 0 {
 			c.TimeoutSec = 30
 		}

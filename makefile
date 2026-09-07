@@ -312,31 +312,38 @@ release-status:
 	@echo ""
 	@$(SSH) $(SERVER) "curl -fsS --max-time 3 http://127.0.0.1:$(HEALTH_PORT)$(HEALTH_PATH) | head -c 300; echo"
 
-# 上传 excel 沙箱组件（nsjail + rootfs tarball）并远端验证（期望输出 2）
-# 前置：nsjail 静态二进制放 deploy/excel-sandbox/nsjail（构建方式见同目录 README）；
-#       rootfs tarball 在任一 Docker 机器运行 deploy/excel-sandbox/build-rootfs.sh 产出
+# 上传 excel 沙箱组件并远端验证。
+# 两种 runner 二选一（excel_tools.sandbox.runner 配置）：
+#   native（推荐，生产在用）：只需 rootfs tarball，隔离由网关内置 Go namespace runner 完成；
+#   nsjail：额外需要静态 nsjail 二进制（构建方式见 deploy/excel-sandbox/README.md）。
+# rootfs tarball 来源：任一 Docker 机器运行 deploy/excel-sandbox/build-rootfs.sh 产出，
+# 或从已部署主机 sandbox/excel-sandbox-rootfs.tar.xz 取回（灾备包）。
 .PHONY: upload-sandbox
 upload-sandbox:
 	$(check-release-env)
-	@if [ ! -f $(SANDBOX_NSJAIL) ]; then \
-		echo "$(RED)✗ 未找到 $(SANDBOX_NSJAIL)（nsjail 静态二进制，构建方式见 deploy/excel-sandbox/README.md）$(NC)"; \
-		exit 1; \
-	fi
 	@if [ ! -f $(SANDBOX_TARXZ) ]; then \
-		echo "$(RED)✗ 未找到 $(SANDBOX_TARXZ)（在任一 Docker 机器运行 deploy/excel-sandbox/build-rootfs.sh 产出）$(NC)"; \
+		echo "$(RED)✗ 未找到 $(SANDBOX_TARXZ)（build-rootfs.sh 产出，或从已部署主机取回）$(NC)"; \
 		exit 1; \
 	fi
 	@echo "$(YELLOW)上传沙箱组件 → $(SERVER):$(REMOTE_DIR)/sandbox/ ...$(NC)"
 	@$(SSH) $(SERVER) "mkdir -p $(REMOTE_DIR)/sandbox/rootfs"
-	@$(SCP) $(SANDBOX_NSJAIL) $(SERVER):$(REMOTE_DIR)/sandbox/nsjail
+	@if [ -f $(SANDBOX_NSJAIL) ]; then \
+		echo "$(YELLOW)附带上传 nsjail（runner=nsjail 时需要）$(NC)"; \
+		$(SCP) $(SANDBOX_NSJAIL) $(SERVER):$(REMOTE_DIR)/sandbox/nsjail; \
+		$(SSH) $(SERVER) "chmod +x $(REMOTE_DIR)/sandbox/nsjail"; \
+	fi
 	@$(SCP) $(SANDBOX_TARXZ) $(SERVER):$(REMOTE_DIR)/sandbox/
 	@$(SSH) $(SERVER) "tar -xJf $(REMOTE_DIR)/sandbox/excel-sandbox-rootfs.tar.xz -C $(REMOTE_DIR)/sandbox/rootfs && \
-		chmod +x $(REMOTE_DIR)/sandbox/nsjail && \
 		ls -l $(REMOTE_DIR)/sandbox/rootfs/usr/local/bin/python3"
-	@echo "$(YELLOW)远端验证沙箱（期望输出 2）...$(NC)"
-	@echo 'print(1+1)' | $(SSH) $(SERVER) "cd $(REMOTE_DIR) && ./sandbox/nsjail -Mo --chroot sandbox/rootfs \
-		--user 65534 --group 65534 --cwd /tmp --tmpfsmount /tmp:size=32m \
-		-- /usr/local/bin/python3 -I -"
+	@if [ -f $(SANDBOX_NSJAIL) ]; then \
+		echo "$(YELLOW)远端验证沙箱 nsjail 路径（期望输出 2）...$(NC)"; \
+		echo 'print(1+1)' | $(SSH) $(SERVER) "cd $(REMOTE_DIR) && ./sandbox/nsjail -Mo --chroot sandbox/rootfs \
+			--user 65534 --group 65534 --cwd /tmp --tmpfsmount /tmp:size=32m \
+			-- /usr/local/bin/python3 -I -"; \
+	else \
+		echo "$(YELLOW)runner=native：rootfs 就位即可，网关侧验证（开启 debug_endpoints 后）：$(NC)"; \
+		echo "  curl -X POST http://<server>:$(HEALTH_PORT)/excel/api/tools/code_execution -H 'Authorization: Bearer sk-...' -d '{\"code\":\"print(1+1)\"}'"; \
+	fi
 	@echo "$(GREEN)✓ 沙箱组件就绪；网关后台开启 excel_tools.sandbox.enabled 后生效$(NC)"
 
 # ============================================================

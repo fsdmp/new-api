@@ -372,7 +372,8 @@ type Runner interface {
 // RunResult: {Stdout, Stderr string(各≤64KB截断), ExitCode int, DurationMs int64, TimedOut bool}
 ```
 
-- **NsjailRunner**（2026-09-07 依部署约束修订：宿主机**不装 Docker**）：网关 `exec.Command` 调用 nsjail 静态二进制（单文件、无守护进程、无安装动作，位于网关数据目录），生命周期 = fork → 等待/墙钟超时强杀 → 收集 stdout/stderr → 进程退出（无清理步骤，进程即沙箱）。备选实现：Go 原生命名空间（`exec.Cmd` SysProcAttr Cloneflags），零外部文件但多 1-2 天开发且细节易踩坑，默认不选；
+- **NsjailRunner**（2026-09-07 依部署约束修订：宿主机**不装 Docker**）：网关 `exec.Command` 调用 nsjail 静态二进制（单文件、无守护进程、无安装动作，位于网关数据目录），生命周期 = fork → 等待/墙钟超时强杀 → 收集 stdout/stderr → 进程退出（无清理步骤，进程即沙箱）。
+  **2026-09-07 再修订：生产实际落地为 NativeRunner（Go 原生命名空间，`sandbox_native.go`，`runner:"native"` 配置）**——因 nsjail 静态二进制在无 Docker 的构建链上同样难产，而 Go `SysProcAttr` 已覆盖全部隔离项：CLONE_NEWUSER/NEWNS/NEWPID/NEWNET/NEWIPC/NEWUTS + Chroot + uid/gid 双映射 + `setpriv --no-new-privs`（封死 suid 提权）+ 清空三类 cap 集 + bash ulimit（CPU/内存/进程数/文件大小）+ tmpfs /tmp + NEWNET 空网络栈禁出网；生产实测（T0 补测）CapEff=0、NoNewPrivs=1、禁网、rootfs 只读、超时强杀全部通过。踩坑记录见 `sandbox_native_script.go` 注释（dash 无 `ulimit -u`、Go 自写 gid_map 致 setgroups=deny、单映射下 caps 不可用、Go 先 chroot 后 chdir）。NsjailRunner 保留为可选后端（`runner:"nsjail"`）。
 - 隔离参数（对齐 S2.3 红线的 nsjail 等价项）：`--chroot <rootfs>` + `/proc` 只读、`--user 65534 --group 65534`、`--time_limit 30`（`timed_out:true`）、`--rlimit_as 1024`、`--rlimit_cpu 30`、`--rlimit_nproc 64`、根文件系统 `--bindmount_ro` 只读、空网络命名空间（禁出网）、seccomp 默认策略起步（二期收紧）；
 - 代码经 stdin 注入，工作目录为 chroot 内 `/tmp`（tmpfs 挂载 256MB，可写，根文件系统其余只读）；
 - rootfs 分发：CI/dev 机器上用 Docker **构建一次**（`deploy/excel-sandbox/Dockerfile`：`python:3.11-slim` + pandas/numpy/openpyxl/pdfplumber/python-docx/lxml，**库清单与 description 承诺严格一致**），导出目录树打包为 `excel-sandbox-rootfs.tar.xz`（约 80-150MB）随发布物分发，宿主机解压到网关数据目录即用——生产宿主机全程不接触 Docker；
@@ -588,9 +589,15 @@ webfetch/safefetch/sandbox/codeexec/debug）、`controller/excel_tool_loop.go`�
 ### 遗留到 T0 的事项
 
 - vConsole 抓包核对合成块形状（§12-1）；
-- 宿主机 `kernel.unprivileged_userns_clone` 检查（部署 README P1）；
-- rootfs 在任一 Docker 机器上执行 `deploy/excel-sandbox/build-rootfs.sh`（用户侧动作）；
-- T0 验证清单：`docs/excel-server-tools-t0-verification.md`。
+- 宿主机 `kernel.unprivileged_userns_clone` 检查（部署 README P1）——**✅ 已查 =1**；
+- rootfs 在任一 Docker 机器上执行 `deploy/excel-sandbox/build-rootfs.sh`（用户侧动作）——**✅ 已用无 Docker 链路替代落地**（daocloud 镜像直拉 layer 解包 + pip 21.3.1 下载 wheels 解包进 site-packages，生产 rootfs 已就位，灾备包 `sandbox/excel-sandbox-rootfs.tar.xz` 66MB）；
+- T0 验证清单：`docs/excel-server-tools-t0-verification.md`——**✅ 2026-09-07 全量执行完毕**（含 native 沙箱补测），结果见该文档。
+
+### 沙箱落地补充（2026-09-07 晚，#18 完成）
+
+- 隔离后端生产采用 **NativeRunner**（`runner:"native"`，见 §5.6.3 再修订），rootfs = python:3.11-slim + 19 个 cp311 wheels（pandas/numpy/openpyxl/pdfplumber/pdfminer.six/python-docx/lxml/Pillow/python-dateutil/pytz/typing-extensions/tzdata/et-xmlfile/charset-normalizer/cryptography/six/cffi/pycparser/pypdfium2）；
+- P4/P5/权限/C14-17/R6/R7/长任务保活/内存上限全部通过（详见 T0 文档补测表）；
+- `make upload-sandbox` 已适配双 runner（nsjail 变为可选上传项）。
 
 ### 前端逆向情报落地（2026-09-07 二批，前端同学提供 vendor bundle 分析）
 

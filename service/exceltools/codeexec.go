@@ -32,7 +32,7 @@ func (e *CodeExecutionExecutor) Execute(sess *Session, call *CapturedCall) *Exec
 		}
 	}
 
-	run := NewNsjailRunner().Run(context.Background(), sess.UserID, code)
+	run := NewCodeRunner().Run(context.Background(), sess.UserID, code)
 	if run.DurationMs > 3000 || run.TimedOut || run.ExitCode != 0 {
 		common.SysLog("[excel-tools] code_execution done: exit=" +
 			strconv.Itoa(run.ExitCode) + " timedOut=" + strconv.FormatBool(run.TimedOut) +

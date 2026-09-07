@@ -95,8 +95,24 @@ func acquireSandboxSlot(userID int) (release func(), ok bool) {
 }
 
 func (r *NsjailRunner) Run(ctx context.Context, userID int, code string) *RunOutput {
-	start := time.Now()
 	cfg := excel_tools.GetSandboxConfig()
+	nsjailPath, rootfsPath := excel_tools.ResolveSandboxPaths()
+	return driveSandboxRun(ctx, userID, code, cfg.TimeoutSec, 3*time.Second, func(ctx context.Context) *exec.Cmd {
+		args := make([]string, 0, len(nsjailFixedArgs)+4)
+		args = append(args, "-Mo", "--chroot", rootfsPath,
+			"--time_limit", fmt.Sprintf("%d", cfg.TimeoutSec),
+			"--rlimit_cpu", fmt.Sprintf("%d", cfg.TimeoutSec))
+		args = append(args, nsjailFixedArgs...)
+		return exec.CommandContext(ctx, nsjailPath, args...)
+	})
+}
+
+// driveSandboxRun is the process lifecycle shared by all code runners:
+// availability gate, concurrency, wall-clock kill, stdin injection, capped
+// output capture. grace extends the ctx deadline beyond the configured
+// timeout so runners with their own timer (nsjail --time_limit) fire first.
+func driveSandboxRun(ctx context.Context, userID int, code string, timeoutSec int, grace time.Duration, newCmd func(ctx context.Context) *exec.Cmd) *RunOutput {
+	start := time.Now()
 	if !excel_tools.SandboxAvailable() {
 		return &RunOutput{ExitCode: -1, Stderr: "sandbox not available", DurationMs: time.Since(start).Milliseconds()}
 	}
@@ -107,18 +123,14 @@ func (r *NsjailRunner) Run(ctx context.Context, userID int, code string) *RunOut
 	}
 	defer release()
 
-	timeout := time.Duration(cfg.TimeoutSec) * time.Second
-	// +3s grace so nsjail's own --time_limit fires first and its log is captured.
-	ctx, cancel := context.WithTimeout(ctx, timeout+3*time.Second)
+	if timeoutSec <= 0 {
+		timeoutSec = 30
+	}
+	timeout := time.Duration(timeoutSec) * time.Second
+	ctx, cancel := context.WithTimeout(ctx, timeout+grace)
 	defer cancel()
 
-	args := make([]string, 0, len(nsjailFixedArgs)+4)
-	args = append(args, "-Mo", "--chroot", cfg.RootfsPath,
-		"--time_limit", fmt.Sprintf("%d", cfg.TimeoutSec),
-		"--rlimit_cpu", fmt.Sprintf("%d", cfg.TimeoutSec))
-	args = append(args, nsjailFixedArgs...)
-
-	cmd := exec.CommandContext(ctx, cfg.NsjailPath, args...)
+	cmd := newCmd(ctx)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return &RunOutput{ExitCode: -1, Stderr: err.Error(), DurationMs: time.Since(start).Milliseconds()}
@@ -178,9 +190,18 @@ func (b *limitedBuffer) Write(p []byte) (int, error) {
 
 func (b *limitedBuffer) String() string { return b.buf.String() }
 
-// NewNsjailRunner returns the default runner (kept behind a constructor for
-// future config-driven backend selection).
+// NewNsjailRunner returns the nsjail-backed runner (explicit constructor for
+// tests that want this backend regardless of config).
 func NewNsjailRunner() CodeRunner { return &NsjailRunner{} }
+
+// NewCodeRunner returns the runner selected by excel_tools.sandbox.runner
+// ("nsjail" default, "native" for the no-external-binary namespace runner).
+func NewCodeRunner() CodeRunner {
+	if excel_tools.GetSandboxConfig().Runner == excel_tools.RunnerNative {
+		return &NativeRunner{}
+	}
+	return &NsjailRunner{}
+}
 
 // execCodeResult builds the ExecResult for a sandbox run.
 func execCodeResult(run *RunOutput) *ExecResult {

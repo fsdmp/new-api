@@ -444,8 +444,11 @@ export default function SettingsExcel(props) {
                   field={'excel_tools.sandbox'}
                   label={t('沙箱配置（JSON）')}
                   placeholder={
-                    '{"enabled":false,"nsjail_path":"","rootfs_path":"","timeout_sec":30,"max_concurrent":4,"daily_quota":50}'
+                    '{"enabled":false,"runner":"nsjail","nsjail_path":"","rootfs_path":"","timeout_sec":30,"max_concurrent":4,"daily_quota":50}'
                   }
+                  extraText={t(
+                    'runner: nsjail=外部二进制（需部署 sandbox/nsjail），native=网关内置 namespace 隔离（推荐，仅需 rootfs）；rootfs 部署见 make upload-sandbox',
+                  )}
                   rows={5}
                   onChange={handleFieldChange('excel_tools.sandbox')}
                 />

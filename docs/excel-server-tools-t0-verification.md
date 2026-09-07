@@ -101,4 +101,65 @@
 
 在下方追加：日期 / 环境（网关版本、机型）/ 每条通过与截图或日志摘录 / 未通过项的根因。
 
-（预留）
+### 2026-09-07 线上首测（网关 v20260907-1540，8.140.235.234，curl 探针直打 /excel/v1/messages）
+
+实测前修复（commit ed595eb3）：智谱 raw Bearer 鉴权、合成帧补 type 字段、
+adapter 注入当前日期（模型无时钟会编造日期）、无 link/url 的智谱 AI 摘要卡片不再丢弃。
+
+| 项 | 结果 | 备注 |
+|---|---|---|
+| P1 userns | ✅ | `kernel.unprivileged_userns_clone = 1` |
+| P4/P5/P6/P8 | ✅ | 沙箱项除外：智谱 key 取自 GLM 渠道（同一账号），搜索直测 ok；P8 直接写 options 表 |
+| P7 反代 | ✅ | APISIX 无自定义读超时（默认 60s），ping 2s 足够 |
+| A1 上证收盘 | ✅ | 当日 3932.70 精确 + OHLC 表，模型正确排除旧闻 |
+| A2 汇率 | ⚠️ 部分 | 最新仅到 8/17（指数滞后），模型诚实标注时点并给走势 |
+| A3 布伦特 | ✅ | 9/1 报价 90.49 美元/桶，模型调和了矛盾数据 |
+| A4 黄金 | ⚠️ 部分 | 最新到 8/13（4449.73），模型拒报不确定数字 |
+| A5 美联储 | ✅ | 2026-06-17 决议维持 3.5%–3.75% + 背景 |
+| A6 茅台 | ✅ | 9/4 收盘 1330.00，正确指出今日周一盘中 |
+| A7 LPR | ✅ | 正确说明 9/20 才公布，给 8/20 报价 3.0%/3.5% |
+| A8 GDP | ✅ | 5.0%、140.19 万亿，官方口径 |
+| A9 比特币 | ⚠️ 部分 | 智谱内容审查 1301 在第 2 轮拦截上游→SSE error 优雅终止，已产出正文保留；行情仅到 8 月下旬 |
+| A10 恒指 | ✅ | 当日盘中 -0.8%~-1.0%，OHLC 表 |
+| B11 读头条 | ✅ | fetch×2+search×2 串联，读出当日东财头条全文要点 |
+| B12 特斯拉财报 | ✅ | Q2 2026 营收 282.4 亿美元 +26%，给出处 |
+| B13 10Y 国债 | ✅ | 中 1.68%（9/4）美 4.80%（9/7），均带来源 |
+| D19 连发 | ✅ | ~15 连发无断流，每条完整 end_turn |
+| D20 配额拒绝 | ✅ | quota=2 → 模型转述「额度已达上限」，无 HTTP 错误 |
+| R3 协议 | ✅（探针侧） | 单 message_start/stop、index 全局连续、聚合 usage 正确；vConsole 真机仍待前端 |
+| R9 SSRF | ✅ | 169.254.169.254 / 127.0.0.1:3000 / localhost 全部 exec_error 拒绝 |
+| C14-17 / R6 / R7 | ✅ | 见下方沙箱补测（v20260907-1627，runner=native） |
+| R2 断连 / R5 Redis 停 | ⏳ | 生产上不宜制造，留待沙箱/预发环境 |
+| B1/B2 回滚开关 | ✅（等效） | 上午 strip 基线已实际运行；单测锁死 off 行为 |
+
+**结论**：full 模式搜索/抓取链路达到可用标准。现货报价类（汇率/黄金/比特币）
+受智谱索引时效限制，模型均能诚实标注数据时点——属引擎质量上限，非网关缺陷。
+已知约束：智谱对加密货币话题有内容审查（1301），迭代内触发则以 SSE error 收尾。
+
+### 2026-09-07 沙箱补测（网关 v20260907-1627，runner=native，rootfs=python3.11-slim+pandas/numpy/openpyxl/pdfplumber 等 19 wheels）
+
+沙箱落地方式（生产无 Docker 红线下的替代链）：daocloud 镜像直拉
+library/python:3.11-slim layer blobs 解包为 rootfs + pip 21.3.1（py3.6 兼容）
+下载 cp311 manylinux wheels 解包进 site-packages；隔离用网关内置 Go
+namespace runner（sandbox_native.go），不依赖 nsjail 二进制。安全要点
+（均在生产实测验证）：uid/gid 双映射 {0→0, 65534→65534} + chroot +
+NEWNET 禁网 + `setpriv --no-new-privs`（封死 rootfs suid 提权）+
+清空 bounding/inheritable/ambient caps + tmpfs /tmp + rlimits。
+
+| 项 | 结果 | 备注 |
+|---|---|---|
+| P4 print(1+1) | ✅ | 调试端点与 /excel/v1/messages 链路均 2 |
+| P5 禁网 | ✅ | urllib → Network is unreachable（NEWNET 无接口） |
+| 权限 | ✅ | CapEff=0、NoNewPrivs=1、/tmp=tmpfs、rootfs 只读（PermissionError） |
+| C14 大数乘法 | ✅ | Decimal 精确 12193263111263.5269，模型给出交叉验证 |
+| C15 标准差 | ✅ | 总体 2 + 样本公式说明，沙箱核算 |
+| C16 pandas | ✅ | sum 5050 / √5050 ≈ 71.0634 |
+| C17 openpyxl | ✅ | 模型自建示例 xlsx 再读取前 3 行，双方式（pandas/openpyxl）跑通 |
+| R6 死循环 | ✅ | 纯 `while True` 被超时杀，模型准确转述"沙箱超时强制终止"并解释原因 |
+| R7 迭代上限 | ✅（等效+） | 五连问触达每回合调用上限 → 模型收到拒绝反馈 → 自动降级 web_fetch 完成 → 正常 end_turn，单消息框架 |
+| 30s 长任务保活 | ✅ | 模型自限时 30.000s 循环任务期间 SSE 不断流，ping 保活有效 |
+| 内存上限 | ✅ | 2GB 分配 → MemoryError（ulimit -v 1GB） |
+
+**沙箱遗留**：rootfs 灾备包 sandbox/excel-sandbox-rootfs.tar.xz（66MB）已
+在生产生成；新机部署走 `make upload-sandbox`（nsjail 可选，runner=native
+只需 rootfs）。
