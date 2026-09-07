@@ -7,6 +7,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting/excel_setting"
+	"github.com/QuantumNous/new-api/setting/excel_tools"
 
 	"github.com/gin-gonic/gin"
 )
@@ -60,6 +61,12 @@ const (
 	// to reinforce Chinese output against client-injected English prompts.
 	excelLangInstructionSuffix = "\n<REMINDER>再次强调：你的思考过程(thinking)和最终回复都必须使用简体中文。不要使用英文思考。</REMINDER>\n"
 
+	// excelToolsDegradationNote is appended to the system prompt in strip mode
+	// when the request contained virtual server tools, so the model states it
+	// cannot go online instead of hallucinating tool use (the client's own
+	// system prompt still advertises these capabilities).
+	excelToolsDegradationNote = "\n<excel-tools-note>当前环境没有联网搜索、网页抓取和代码执行能力。不要调用 web_search、web_fetch、code_execution 等工具，也不要声称将要搜索网页或运行代码。涉及实时信息时明确说明无法联网；涉及精确计算时使用 Excel 公式、客户端表格工具，或给出可验证的计算步骤。</excel-tools-note>\n"
+
 	// Per-user-message prefix. Set to empty string to disable per-message injection.
 	excelUserLangPrefix = "【请用中文思考和回复，thinking内容也必须用中文】\n"
 )
@@ -86,8 +93,12 @@ func ExcelRequestAdapter() gin.HandlerFunc {
 			return
 		}
 
-		sanitized := sanitizeExcelBody(body)
+		sanitized, toolInfo := sanitizeExcelBody(body)
 		injectExcelChineseLanguage(sanitized)
+		injectExcelToolsNotes(sanitized, toolInfo)
+		if toolInfo != nil {
+			c.Set(excel_tools.GinKeyVirtualTools, toolInfo)
+		}
 
 		// Model compatibility: fall back to default if model is missing or not in allowed list
 		if modelVal, ok := sanitized["model"]; !ok {
@@ -132,10 +143,11 @@ func ExcelRequestAdapter() gin.HandlerFunc {
 			return
 		}
 
-		// Log the final sanitized request body forwarded upstream.
+		// Log the final sanitized request body forwarded upstream (truncated;
+		// full bodies leak user spreadsheet data into logs).
 		requestID := c.GetString(common.RequestIdKey)
 		modelName, _ := sanitized["model"].(string)
-		common.SysLog(fmt.Sprintf("[excel-relay] request_id=%s model=%s body=%s", requestID, modelName, string(newData)))
+		common.SysLog(fmt.Sprintf("[excel-relay] request_id=%s model=%s body=%s", requestID, modelName, truncateForLog(newData)))
 
 		newStorage, err := common.CreateBodyStorage(newData)
 		if err != nil {
@@ -153,8 +165,9 @@ func ExcelRequestAdapter() gin.HandlerFunc {
 
 // ---------- sanitizers ----------
 
-func sanitizeExcelBody(body map[string]interface{}) map[string]interface{} {
+func sanitizeExcelBody(body map[string]interface{}) (map[string]interface{}, *excel_tools.VirtualToolInfo) {
 	result := make(map[string]interface{}, len(body))
+	var toolInfo *excel_tools.VirtualToolInfo
 
 	for key, value := range body {
 		if !excelTopLevelAllowlist[key] {
@@ -169,7 +182,9 @@ func sanitizeExcelBody(body map[string]interface{}) map[string]interface{} {
 			result["system"] = normalizeExcelSystem(value)
 		case "tools":
 			if tools, ok := value.([]interface{}); ok {
-				if cleaned := sanitizeExcelTools(tools); len(cleaned) > 0 {
+				cleaned, info := sanitizeExcelTools(tools)
+				toolInfo = info
+				if len(cleaned) > 0 {
 					result["tools"] = cleaned
 				}
 			}
@@ -187,7 +202,7 @@ func sanitizeExcelBody(body map[string]interface{}) map[string]interface{} {
 			result[key] = value
 		}
 	}
-	return result
+	return result, toolInfo
 }
 
 func sanitizeExcelMessages(messages []interface{}) []interface{} {
@@ -222,6 +237,7 @@ func sanitizeExcelMessages(messages []interface{}) []interface{} {
 }
 
 func sanitizeExcelContentBlocks(blocks []interface{}) []interface{} {
+	convertHistory := excel_tools.GetMode() != excel_tools.ModeOff
 	var result []interface{}
 	for _, block := range blocks {
 		blockMap, ok := block.(map[string]interface{})
@@ -233,6 +249,16 @@ func sanitizeExcelContentBlocks(blocks []interface{}) []interface{} {
 		}
 		blockType, _ := blockMap["type"].(string)
 		if !excelSupportedBlockTypes[blockType] {
+			// History blocks echoing our synthesized server-tool blocks from a
+			// previous turn: convert (not drop) so the model keeps the tool
+			// context across turns. Fields are shape-compatible with the
+			// regular tool_use / tool_result blocks the converter consumes.
+			if convertHistory {
+				if converted := convertServerToolHistoryBlock(blockType, blockMap); converted != nil {
+					result = append(result, converted)
+					continue
+				}
+			}
 			continue
 		}
 		if blockType == "tool_result" {
@@ -243,6 +269,39 @@ func sanitizeExcelContentBlocks(blocks []interface{}) []interface{} {
 		result = append(result, blockMap)
 	}
 	return result
+}
+
+// convertServerToolHistoryBlock rewrites a client-echoed server-tool history
+// block into the regular block type the upstream converter understands.
+// server_tool_use -> tool_use (id/name/input identical);
+// *_tool_result -> tool_result with the original content JSON-stringified so
+// the model can read it as plain text.
+func convertServerToolHistoryBlock(blockType string, blockMap map[string]interface{}) map[string]interface{} {
+	switch blockType {
+	case "server_tool_use":
+		converted := make(map[string]interface{}, len(blockMap)+1)
+		for k, v := range blockMap {
+			converted[k] = v
+		}
+		converted["type"] = "tool_use"
+		return converted
+	case "web_search_tool_result", "web_fetch_tool_result", "code_execution_tool_result":
+		converted := make(map[string]interface{}, len(blockMap)+1)
+		for k, v := range blockMap {
+			converted[k] = v
+		}
+		converted["type"] = "tool_result"
+		delete(converted, "content") // rebuilt below as plain text
+		if content, ok := blockMap["content"]; ok {
+			if encoded, err := common.Marshal(content); err == nil {
+				converted["content"] = string(encoded)
+			} else {
+				converted["content"] = fmt.Sprintf("%v", content)
+			}
+		}
+		return converted
+	}
+	return nil
 }
 
 func normalizeExcelSystem(system interface{}) interface{} {
@@ -271,8 +330,26 @@ func normalizeExcelSystem(system interface{}) interface{} {
 	}
 }
 
-func sanitizeExcelTools(tools []interface{}) []interface{} {
+// sanitizeExcelTools cleans the tools array. Virtual server tools (recognized
+// by their versioned `type` and absent input_schema, e.g. web_search_20250305)
+// are handled per excel_tools.mode:
+//   - off:   legacy behavior — empty-schema passthrough (byte-compatible with
+//     the pre-tool-loop gateway)
+//   - strip: removed entirely (the model never sees them)
+//   - full:  injected with the real name/description/input_schema from the
+//     tool definitions, if the backing executor is available
+//
+// Unknown server-tool types (vendor added a new capability we do not serve)
+// are stripped with a warning in strip/full mode — vendor-upgrade sentinel.
+func sanitizeExcelTools(tools []interface{}) ([]interface{}, *excel_tools.VirtualToolInfo) {
+	mode := excel_tools.GetMode()
 	var result []interface{}
+	info := &excel_tools.VirtualToolInfo{
+		MaxUsages:        map[string]int{},
+		MaxContentTokens: map[string]int{},
+	}
+	sawVirtual := false
+
 	for _, tool := range tools {
 		toolMap, ok := tool.(map[string]interface{})
 		if !ok {
@@ -283,6 +360,70 @@ func sanitizeExcelTools(tools []interface{}) []interface{} {
 			source = custom
 		}
 		name, _ := source["name"].(string)
+
+		// Server-tool detection: versioned top-level type, no input_schema.
+		typeStr, _ := toolMap["type"].(string)
+		_, hasSchema := source["input_schema"]
+		if typeStr != "" && typeStr != "custom" && !hasSchema {
+			sawVirtual = true
+			if def := excel_tools.MatchVirtualTool(typeStr); def != nil {
+				if maxUses, ok := toInt(toolMap["max_uses"]); ok {
+					info.MaxUsages[def.Name] = maxUses
+				}
+				// web_fetch declares max_content_tokens (vendor bundle): cap the
+				// content returned per fetch, mirroring Anthropic's semantics.
+				if maxTokens, ok := toInt(toolMap["max_content_tokens"]); ok {
+					info.MaxContentTokens[def.Name] = maxTokens
+				}
+				switch mode {
+				case excel_tools.ModeOff:
+					// legacy behavior: empty-schema passthrough (the loop never
+					// activates in off mode, so Names stays empty)
+					if name != "" {
+						result = append(result, map[string]interface{}{
+							"name": name,
+							"input_schema": map[string]interface{}{
+								"type":       "object",
+								"properties": map[string]interface{}{},
+							},
+						})
+					}
+				case excel_tools.ModeFull:
+					if excel_tools.ToolAvailableForInjection(def.Name) {
+						info.Names = append(info.Names, def.Name)
+						result = append(result, map[string]interface{}{
+							"name":         def.Name,
+							"description":  def.Description,
+							"input_schema": def.InputSchema,
+						})
+					} else {
+						info.Stripped = append(info.Stripped, def.Name)
+					}
+				case excel_tools.ModeStrip:
+					info.Stripped = append(info.Stripped, def.Name)
+					// full mode also reaches here via executor-unavailable
+				}
+				continue
+			}
+			// Unknown server tool: strip + warn (vendor-upgrade sentinel),
+			// except in off mode which preserves legacy behavior.
+			if mode == excel_tools.ModeOff {
+				if name != "" {
+					result = append(result, map[string]interface{}{
+						"name": name,
+						"input_schema": map[string]interface{}{
+							"type":       "object",
+							"properties": map[string]interface{}{},
+						},
+					})
+				}
+			} else {
+				common.SysLog(fmt.Sprintf("[excel-tools] request stripped unknown server tool type=%s name=%s (vendor upgrade?)", typeStr, name))
+			}
+			continue
+		}
+
+		// Regular (client-executed) tool — unchanged behavior.
 		if name == "" {
 			continue
 		}
@@ -300,7 +441,10 @@ func sanitizeExcelTools(tools []interface{}) []interface{} {
 		}
 		result = append(result, cleanTool)
 	}
-	return result
+	if !sawVirtual {
+		return result, nil
+	}
+	return result, info
 }
 
 func sanitizeExcelToolChoice(toolChoice interface{}) interface{} {
@@ -393,6 +537,58 @@ func injectExcelChineseLanguage(body map[string]interface{}) {
 			}
 		}
 	}
+}
+
+// ---------- excel server-tools helpers ----------
+
+// injectExcelToolsNotes appends the strip-mode degradation note when virtual
+// tools were removed from the request, countering the client system prompt
+// that still advertises them (otherwise the model claims it will "search the
+// web" and then apologizes).
+func injectExcelToolsNotes(body map[string]interface{}, info *excel_tools.VirtualToolInfo) {
+	if info == nil || len(info.Stripped) == 0 {
+		return
+	}
+	if excel_tools.GetMode() != excel_tools.ModeStrip {
+		return
+	}
+	switch s := body["system"].(type) {
+	case string:
+		body["system"] = s + excelToolsDegradationNote
+	case []interface{}:
+		body["system"] = append(s, map[string]interface{}{
+			"type": "text",
+			"text": excelToolsDegradationNote,
+		})
+	}
+}
+
+// truncateForLog applies the configured body-log limit. Negative disables
+// logging entirely; zero keeps the legacy full body.
+func truncateForLog(data []byte) string {
+	limit := excel_tools.LogBodyLimit()
+	if limit < 0 {
+		return "<disabled>"
+	}
+	if limit == 0 || len(data) <= limit {
+		return string(data)
+	}
+	return string(data[:limit]) + fmt.Sprintf("…[truncated %d/%d bytes]", limit, len(data))
+}
+
+// toInt converts the numeric forms produced by JSON unmarshalling.
+func toInt(v interface{}) (int, bool) {
+	switch n := v.(type) {
+	case float64:
+		return int(n), true
+	case int:
+		return n, true
+	case int64:
+		return int(n), true
+	case uint64:
+		return int(n), true
+	}
+	return 0, false
 }
 
 // ---------- helpers ----------

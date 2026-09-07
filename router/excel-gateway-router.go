@@ -3,7 +3,6 @@ package router
 import (
 	"github.com/QuantumNous/new-api/controller"
 	"github.com/QuantumNous/new-api/middleware"
-	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
 )
@@ -29,6 +28,13 @@ func SetExcelGatewayRouter(router *gin.Engine) {
 	excel.POST("/api/analytics", middleware.RouteTag("excel-gateway"), controller.AnalyticsMock)
 	excel.GET("/api/check-version", middleware.RouteTag("excel-gateway"), controller.CheckVersion)
 
+	// Debug endpoints for the server-tool executors (flag-gated, default
+	// off; see design doc §5.6.4). Direct executor invocation for联调/压测.
+	toolsRouter := excel.Group("/api/tools")
+	toolsRouter.Use(middleware.RouteTag("excel-gateway"))
+	toolsRouter.Use(middleware.TokenAuth())
+	toolsRouter.POST("/:tool", controller.ExcelToolDebug)
+
 	// Excel relay — sanitizes requests, injects Chinese language instructions,
 	// then forwards through the standard Claude relay pipeline.
 	excelRouter := excel.Group("/v1")
@@ -40,8 +46,6 @@ func SetExcelGatewayRouter(router *gin.Engine) {
 	{
 		httpRouter := excelRouter.Group("")
 		httpRouter.Use(middleware.Distribute())
-		httpRouter.POST("/messages", func(c *gin.Context) {
-			controller.Relay(c, types.RelayFormatClaude)
-		})
+		httpRouter.POST("/messages", controller.ExcelMessagesRelay)
 	}
 }

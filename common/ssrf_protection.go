@@ -75,6 +75,13 @@ var privateIPv6Nets = func() []net.IPNet {
 	return nets
 }()
 
+// IsIPPrivate 检查IP是否为私有/保留/特殊用途地址（含 127/8、10/8、
+// 172.16/12、192.168/16、169.254/16 云元数据、IPv6 ULA/链路本地等，
+// IPv4 与 IPv6 全量）。导出供 SSRF 敏感的抓取器复用。
+func IsIPPrivate(ip net.IP) bool {
+	return isPrivateIP(ip)
+}
+
 // isPrivateIP 检查IP是否为私有/保留/特殊用途地址
 func isPrivateIP(ip net.IP) bool {
 	if ip == nil {
