@@ -37,15 +37,27 @@ func SetExcelGatewayRouter(router *gin.Engine) {
 
 	// Excel relay — sanitizes requests, injects Chinese language instructions,
 	// then forwards through the standard Claude relay pipeline.
+	// TokenAuth runs BEFORE the adapter so the adapter can scope document-block
+	// file lookups to the authenticated user (M2); TokenAuth reads no body.
 	excelRouter := excel.Group("/v1")
 	excelRouter.Use(middleware.RouteTag("relay"))
 	excelRouter.Use(middleware.SystemPerformanceCheck())
-	excelRouter.Use(middleware.ExcelRequestAdapter())
 	excelRouter.Use(middleware.TokenAuth())
+	excelRouter.Use(middleware.ExcelRequestAdapter())
 	excelRouter.Use(middleware.ModelRequestRateLimit())
 	{
 		httpRouter := excelRouter.Group("")
 		httpRouter.Use(middleware.Distribute())
 		httpRouter.POST("/messages", controller.ExcelMessagesRelay)
 	}
+
+	// M2 file service — Anthropic Files API compatible subset (upload / list /
+	// download / delete), TokenAuth-scoped to the owner.
+	filesRouter := excel.Group("/v1/files")
+	filesRouter.Use(middleware.RouteTag("excel-gateway"))
+	filesRouter.Use(middleware.TokenAuth())
+	filesRouter.POST("", controller.ExcelFileUpload)
+	filesRouter.GET("", controller.ExcelFileList)
+	filesRouter.GET("/:id", controller.ExcelFileDownload)
+	filesRouter.DELETE("/:id", controller.ExcelFileDelete)
 }

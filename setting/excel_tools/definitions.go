@@ -96,11 +96,20 @@ var toolDefinitions = []ToolDefinition{
 					"type":        "string",
 					"description": "Complete Python script; print the results you need",
 				},
+				"file_ids": map[string]interface{}{
+					"type":        "array",
+					"items":       map[string]interface{}{"type": "string"},
+					"description": "Optional: file ids of files uploaded in this conversation (from /excel/v1/files). After passing them here, each file is readable read-only at /files/input/<file_id>/<filename> inside the sandbox",
+				},
 			},
 			"required": []string{"code"},
 		},
 	},
 }
+
+// ToolDefinitions exposes the full definition list (tests iterate it to
+// assert schema shape).
+func ToolDefinitions() []ToolDefinition { return toolDefinitions }
 
 // MatchVirtualTool resolves a tool `type` string (e.g. "web_search_20250305")
 // to its definition by prefix, surviving vendor version-suffix drift.

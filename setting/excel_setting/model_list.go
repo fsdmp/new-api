@@ -6,11 +6,20 @@ import (
 )
 
 // ExcelModelEntry defines a single model entry in the configurable model list.
+// Vision is a tri-state: nil (absent in JSON) means the model DOES accept
+// images — every model currently exposed supports them — so existing configs
+// keep working; set false explicitly when wiring a text-only model.
 type ExcelModelEntry struct {
 	ID          string `json:"id"`
 	DisplayName string `json:"display_name"`
 	TargetModel string `json:"target_model"`
 	Enabled     bool   `json:"enabled"`
+	Vision      *bool  `json:"vision,omitempty"`
+}
+
+// IsVision reports whether the entry accepts image blocks.
+func (e *ExcelModelEntry) IsVision() bool {
+	return e.Vision == nil || *e.Vision
 }
 
 // ModelListSettings holds the configurable model list for the Excel API.
@@ -46,4 +55,9 @@ func GetConfiguredModelList() []ExcelModelEntry {
 	}
 
 	return entries
+}
+
+// ApplyModelListForTest overwrites the configured list (unit tests only).
+func ApplyModelListForTest(modelsJSON string) {
+	defaultModelListSettings.Models = modelsJSON
 }

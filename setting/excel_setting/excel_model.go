@@ -5,6 +5,7 @@ type ExcelModelAlias struct {
 	ID          string // model id shown to the client
 	DisplayName string // human-readable name in the UI
 	TargetModel string // actual model name routed to in /messages (empty = passthrough)
+	Vision      bool   // accepts image blocks (absent in config = true)
 }
 
 // GetExcelModelAliases returns the admin-configured model list.
@@ -24,9 +25,34 @@ func GetExcelModelAliases() []ExcelModelAlias {
 			ID:          entry.ID,
 			DisplayName: entry.DisplayName,
 			TargetModel: entry.TargetModel,
+			Vision:      entry.IsVision(),
 		})
 	}
 	return result
+}
+
+// FindExcelModelAlias returns the alias entry for a model id (nil if absent).
+func FindExcelModelAlias(modelName string) *ExcelModelAlias {
+	aliases := GetExcelModelAliases()
+	for i := range aliases {
+		if aliases[i].ID == modelName {
+			return &aliases[i]
+		}
+	}
+	return nil
+}
+
+// GetVisionFallbackModel returns the id of the first enabled vision alias,
+// used to reroute image requests that targeted a text-only model. Empty when
+// no vision model exists (then the request stays untouched and the upstream
+// error surfaces naturally — never silently strip images).
+func GetVisionFallbackModel() string {
+	for _, alias := range GetExcelModelAliases() {
+		if alias.Vision {
+			return alias.ID
+		}
+	}
+	return ""
 }
 
 // RouteExcelModel maps an alias model name to the actual target model name.

@@ -30,6 +30,24 @@ func (c *CapturedCall) Param(name string) (string, bool) {
 	return v, ok
 }
 
+// ParamStringSlice returns a []string parameter (JSON array of strings).
+func (c *CapturedCall) ParamStringSlice(name string) []string {
+	if c.Input == nil {
+		return nil
+	}
+	raw, ok := c.Input[name].([]interface{})
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(raw))
+	for _, v := range raw {
+		if s, ok := v.(string); ok && s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
 // CapturedText is a pass-through text block of one iteration, kept for
 // building the next iteration's request body.
 type CapturedText struct {

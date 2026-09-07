@@ -70,7 +70,7 @@ func virtualToolsRequest() map[string]interface{} {
 func TestSanitizeToolsFullModeInjectsSchema(t *testing.T) {
 	applyMode(t, excel_tools.ModeFull, searchWithKey)
 
-	cleaned, info := sanitizeExcelBody(virtualToolsRequest())
+	cleaned, info := sanitizeExcelBody(virtualToolsRequest(), 1)
 	if info == nil {
 		t.Fatal("VirtualToolInfo expected when virtual tools present")
 	}
@@ -114,7 +114,7 @@ func TestSanitizeToolsStripModeRemovesVirtual(t *testing.T) {
 	applyMode(t, excel_tools.ModeStrip, "")
 
 	body := virtualToolsRequest()
-	cleaned, info := sanitizeExcelBody(body)
+	cleaned, info := sanitizeExcelBody(body, 1)
 	injectExcelChineseLanguage(cleaned)
 	injectExcelToolsNotes(cleaned, info)
 
@@ -142,7 +142,7 @@ func TestSanitizeToolsStripModeRemovesVirtual(t *testing.T) {
 func TestSanitizeToolsOffModeLegacyPassthrough(t *testing.T) {
 	applyMode(t, excel_tools.ModeOff, "")
 
-	cleaned, info := sanitizeExcelBody(virtualToolsRequest())
+	cleaned, info := sanitizeExcelBody(virtualToolsRequest(), 1)
 	if info != nil && len(info.Names) != 0 {
 		t.Errorf("off mode must not inject tools, got %+v", info)
 	}
@@ -193,7 +193,7 @@ func TestHistoryServerToolBlocksConverted(t *testing.T) {
 			},
 		},
 	}
-	cleaned, _ := sanitizeExcelBody(body)
+	cleaned, _ := sanitizeExcelBody(body, 1)
 	msgs, _ := cleaned["messages"].([]interface{})
 	if len(msgs) != 3 {
 		t.Fatalf("messages = %d, want 3", len(msgs))
@@ -242,7 +242,7 @@ func TestHistoryServerToolBlocksDroppedInOffMode(t *testing.T) {
 			},
 		},
 	}
-	cleaned, _ := sanitizeExcelBody(body)
+	cleaned, _ := sanitizeExcelBody(body, 1)
 	msgs, _ := cleaned["messages"].([]interface{})
 	if len(msgs) != 2 {
 		t.Fatalf("off mode must drop server-tool history blocks, got %d messages", len(msgs))

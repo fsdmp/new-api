@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/service/exceltools"
 	"github.com/QuantumNous/new-api/setting/excel_setting"
 	"github.com/QuantumNous/new-api/setting/excel_tools"
 
@@ -35,6 +36,10 @@ var excelSupportedBlockTypes = map[string]bool{
 	"thinking":    true,
 	"tool_use":    true,
 	"tool_result": true,
+	// M2: image blocks pass through to the standard converter
+	// (service/convert.go maps them to OpenAI image_url). Text-only models
+	// are rerouted below via the vision fallback instead of dropping images.
+	"image": true,
 }
 
 const (
@@ -94,12 +99,18 @@ func ExcelRequestAdapter() gin.HandlerFunc {
 			return
 		}
 
-		sanitized, toolInfo := sanitizeExcelBody(body)
+		sanitized, toolInfo := sanitizeExcelBody(body, c.GetInt("id"))
 		injectExcelChineseLanguage(sanitized)
 		injectExcelToolsNotes(sanitized, toolInfo)
 		if toolInfo != nil {
 			c.Set(excel_tools.GinKeyVirtualTools, toolInfo)
 		}
+
+		// Vision routing (M2 / S3-V): image blocks targeting a text-only
+		// alias are rerouted to the first vision alias. No vision alias
+		// configured (or model already vision) leaves the request untouched —
+		// images are never silently stripped.
+		applyVisionRouting(sanitized)
 
 		// Model compatibility: fall back to default if model is missing or not in allowed list
 		if modelVal, ok := sanitized["model"]; !ok {
@@ -166,7 +177,7 @@ func ExcelRequestAdapter() gin.HandlerFunc {
 
 // ---------- sanitizers ----------
 
-func sanitizeExcelBody(body map[string]interface{}) (map[string]interface{}, *excel_tools.VirtualToolInfo) {
+func sanitizeExcelBody(body map[string]interface{}, userId int) (map[string]interface{}, *excel_tools.VirtualToolInfo) {
 	result := make(map[string]interface{}, len(body))
 	var toolInfo *excel_tools.VirtualToolInfo
 
@@ -177,7 +188,7 @@ func sanitizeExcelBody(body map[string]interface{}) (map[string]interface{}, *ex
 		switch key {
 		case "messages":
 			if msgs, ok := value.([]interface{}); ok {
-				result["messages"] = sanitizeExcelMessages(msgs)
+				result["messages"] = sanitizeExcelMessages(msgs, userId)
 			}
 		case "system":
 			result["system"] = normalizeExcelSystem(value)
@@ -206,7 +217,7 @@ func sanitizeExcelBody(body map[string]interface{}) (map[string]interface{}, *ex
 	return result, toolInfo
 }
 
-func sanitizeExcelMessages(messages []interface{}) []interface{} {
+func sanitizeExcelMessages(messages []interface{}, userId int) []interface{} {
 	var result []interface{}
 	for _, msg := range messages {
 		msgMap, ok := msg.(map[string]interface{})
@@ -224,7 +235,7 @@ func sanitizeExcelMessages(messages []interface{}) []interface{} {
 				continue
 			}
 		case []interface{}:
-			sanitized := sanitizeExcelContentBlocks(c)
+			sanitized := sanitizeExcelContentBlocks(c, userId)
 			if len(sanitized) == 0 {
 				continue
 			}
@@ -237,7 +248,7 @@ func sanitizeExcelMessages(messages []interface{}) []interface{} {
 	return result
 }
 
-func sanitizeExcelContentBlocks(blocks []interface{}) []interface{} {
+func sanitizeExcelContentBlocks(blocks []interface{}, userId int) []interface{} {
 	convertHistory := excel_tools.GetMode() != excel_tools.ModeOff
 	var result []interface{}
 	for _, block := range blocks {
@@ -249,6 +260,16 @@ func sanitizeExcelContentBlocks(blocks []interface{}) []interface{} {
 			continue
 		}
 		blockType, _ := blockMap["type"].(string)
+		if blockType == "document" {
+			// M2: document attachments never reach the model as-is (text-only
+			// upstreams); they become a hint telling the model how to read the
+			// file from the sandbox via code_execution.
+			result = append(result, map[string]interface{}{
+				"type": "text",
+				"text": exceltools.DocumentHintForBlock(blockMap, userId),
+			})
+			continue
+		}
 		if !excelSupportedBlockTypes[blockType] {
 			// History blocks echoing our synthesized server-tool blocks from a
 			// previous turn: convert (not drop) so the model keeps the tool
@@ -264,12 +285,73 @@ func sanitizeExcelContentBlocks(blocks []interface{}) []interface{} {
 		}
 		if blockType == "tool_result" {
 			if nested, ok := blockMap["content"].([]interface{}); ok {
-				blockMap["content"] = sanitizeExcelContentBlocks(nested)
+				blockMap["content"] = sanitizeExcelContentBlocks(nested, userId)
 			}
 		}
 		result = append(result, blockMap)
 	}
 	return result
+}
+
+// applyVisionRouting reroutes image requests that targeted a text-only alias
+// to the first vision alias (M2 / S3-V). No vision alias configured (or model
+// already vision) leaves the request untouched — images are never silently
+// stripped.
+func applyVisionRouting(body map[string]interface{}) {
+	if !excelBodyContainsImage(body) {
+		return
+	}
+	modelName, ok := body["model"].(string)
+	if !ok || modelName == "" {
+		return
+	}
+	alias := excel_setting.FindExcelModelAlias(modelName)
+	if alias == nil || alias.Vision {
+		return
+	}
+	fallback := excel_setting.GetVisionFallbackModel()
+	if fallback == "" || fallback == modelName {
+		return
+	}
+	common.SysLog("excel: vision override " + modelName + " -> " + fallback)
+	body["model"] = fallback
+}
+
+// excelBodyContainsImage reports whether any message carries an image block
+// (drives the vision fallback routing).
+func excelBodyContainsImage(body map[string]interface{}) bool {
+	msgs, ok := body["messages"].([]interface{})
+	if !ok {
+		return false
+	}
+	var scan func(blocks []interface{}) bool
+	scan = func(blocks []interface{}) bool {
+		for _, b := range blocks {
+			bm, ok := b.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if t, _ := bm["type"].(string); t == "image" {
+				return true
+			}
+			if t, _ := bm["type"].(string); t == "tool_result" {
+				if nested, ok := bm["content"].([]interface{}); ok && scan(nested) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	for _, m := range msgs {
+		mm, ok := m.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if content, ok := mm["content"].([]interface{}); ok && scan(content) {
+			return true
+		}
+	}
+	return false
 }
 
 // convertServerToolHistoryBlock rewrites a client-echoed server-tool history

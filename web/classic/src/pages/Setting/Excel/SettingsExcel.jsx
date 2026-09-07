@@ -49,6 +49,7 @@ export default function SettingsExcel(props) {
     'excel_tools.fetch': '',
     'excel_tools.sandbox': '',
     'excel_tools.loop': '',
+    'excel_tools.files': '',
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
@@ -78,7 +79,7 @@ export default function SettingsExcel(props) {
   function addModel() {
     syncModelsToInputs([
       ...models,
-      { id: '', display_name: '', target_model: '', enabled: true },
+      { id: '', display_name: '', target_model: '', enabled: true, vision: true },
     ]);
   }
 
@@ -225,7 +226,7 @@ export default function SettingsExcel(props) {
             <Banner
               type='info'
               description={t(
-                '配置 Excel 模型接口返回的模型列表，支持调整顺序和启用/禁用。留空则使用环境变量默认配置。',
+                '配置 Excel 模型接口返回的模型列表，支持调整顺序和启用/禁用。留空则使用环境变量默认配置。带图片的消息发到不支持图片的模型时会自动改路由到第一个支持图片的模型。',
               )}
               style={{ marginBottom: 16 }}
             />
@@ -240,7 +241,7 @@ export default function SettingsExcel(props) {
                 }}
               >
                 <Row gutter={16}>
-                  <Col xs={24} sm={12} md={7}>
+                  <Col xs={24} sm={12} md={6}>
                     <div className='semi-form-field'>
                       <label className='semi-form-field-label'>
                         {t('模型 ID')}
@@ -255,7 +256,7 @@ export default function SettingsExcel(props) {
                       />
                     </div>
                   </Col>
-                  <Col xs={24} sm={12} md={7}>
+                  <Col xs={24} sm={12} md={6}>
                     <div className='semi-form-field'>
                       <label className='semi-form-field-label'>
                         {t('显示名称')}
@@ -270,7 +271,7 @@ export default function SettingsExcel(props) {
                       />
                     </div>
                   </Col>
-                  <Col xs={24} sm={12} md={7}>
+                  <Col xs={24} sm={12} md={6}>
                     <div className='semi-form-field'>
                       <label className='semi-form-field-label'>
                         {t('目标模型')}
@@ -284,6 +285,30 @@ export default function SettingsExcel(props) {
                         showClear
                       />
                     </div>
+                  </Col>
+                  <Col
+                    xs={12}
+                    sm={6}
+                    md={3}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      paddingTop: 22,
+                    }}
+                  >
+                    <Switch
+                      checked={model.vision !== false}
+                      onChange={(val) =>
+                        updateModelField(index, 'vision', val)
+                      }
+                      size='small'
+                      checkedText={t('图')}
+                      uncheckedText={t('文')}
+                    />
+                    <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                      {t('支持图片')}
+                    </span>
                   </Col>
                   <Col
                     xs={24}
@@ -460,6 +485,20 @@ export default function SettingsExcel(props) {
                   placeholder={'{"max_iterations":5,"ping_interval_sec":2}'}
                   rows={5}
                   onChange={handleFieldChange('excel_tools.loop')}
+                />
+              </Col>
+              <Col xs={24} lg={12}>
+                <Form.TextArea
+                  field={'excel_tools.files'}
+                  label={t('文件上传配置（JSON）')}
+                  placeholder={
+                    '{"enabled":true,"max_size_mb":20,"max_files_per_user":100,"max_mb_per_user":500,"ttl_days":30,"extensions":["pdf","csv","xlsx","xls","docx","txt","md","json","png","jpg","jpeg","webp","gif"],"max_file_ids_per_run":5}'
+                  }
+                  extraText={t(
+                    'enabled 开启 /excel/v1/files 上传接口；文件存本地磁盘，沙箱内经 /files/input/<file_id>/<文件名> 只读访问；留空使用默认值',
+                  )}
+                  rows={5}
+                  onChange={handleFieldChange('excel_tools.files')}
                 />
               </Col>
             </Row>

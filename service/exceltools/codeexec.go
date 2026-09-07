@@ -10,7 +10,7 @@ import (
 )
 
 // CodeExecutionExecutor executes the virtual code_execution tool in the
-// nsjail sandbox.
+// configured sandbox runner, with optional /files/input linkage (M2).
 type CodeExecutionExecutor struct{}
 
 func init() {
@@ -32,11 +32,62 @@ func (e *CodeExecutionExecutor) Execute(sess *Session, call *CapturedCall) *Exec
 		}
 	}
 
+	// M2: stage referenced uploads into the jail before running. Failures are
+	// reported in-band (the model retries without the file) — a bad file id
+	// must not kill an otherwise fine computation.
+	prepend := stageFilesForRun(sess.UserID, call)
+
 	run := NewCodeRunner().Run(context.Background(), sess.UserID, code)
 	if run.DurationMs > 3000 || run.TimedOut || run.ExitCode != 0 {
 		common.SysLog("[excel-tools] code_execution done: exit=" +
 			strconv.Itoa(run.ExitCode) + " timedOut=" + strconv.FormatBool(run.TimedOut) +
 			" durMs=" + strconv.FormatInt(run.DurationMs, 10))
 	}
-	return execCodeResult(run)
+	res := execCodeResult(run)
+	if prepend != "" {
+		res.ModelText = prepend + res.ModelText
+		if blocks, ok := res.Block.([]interface{}); ok && len(blocks) == 1 {
+			if block, ok := blocks[0].(map[string]interface{}); ok {
+				if content, ok := block["content"].([]interface{}); ok && len(content) == 1 {
+					if text, ok := content[0].(map[string]interface{}); ok {
+						if s, ok := text["text"].(string); ok {
+							text["text"] = prepend + s
+						}
+					}
+				}
+			}
+		}
+	}
+	return res
+}
+
+// stageFilesForRun links the code_execution file_ids into the sandbox rootfs
+// and returns an empty string on full success, or a short notice to prepend
+// to the run output when something could not be staged.
+func stageFilesForRun(userID int, call *CapturedCall) string {
+	if !excel_tools.FilesEnabled() {
+		return ""
+	}
+	ids := call.ParamStringSlice("file_ids")
+	if len(ids) == 0 {
+		return ""
+	}
+	limit := excel_tools.GetFilesConfig().MaxFileIdsPerRun
+	if len(ids) > limit {
+		ids = ids[:limit]
+	}
+	var problems []string
+	for _, id := range ids {
+		row, err := LinkExcelFileIntoSandbox(id, userID)
+		if err != nil {
+			problems = append(problems, id)
+			continue
+		}
+		common.SysLog("[excel-tools] file staged for sandbox: " + id + " -> /files/input/" + row.Id + "/" + row.Filename)
+	}
+	if len(problems) == 0 {
+		return ""
+	}
+	return "注意：file_ids 中 " + strings.Join(problems, ", ") +
+		" 不存在、已过期或不属于当前用户，未加载；其余文件已就位。\n"
 }

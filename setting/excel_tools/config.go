@@ -31,8 +31,8 @@ type SearchConfig struct {
 	ProviderByModelPrefix map[string]string `json:"provider_by_model_prefix"`
 	// APIKeys maps provider name -> API key.
 	APIKeys    map[string]string `json:"api_keys"`
-	MaxResults int               `json:"max_results"`  // default 5, hard cap 10
-	DailyQuota int               `json:"daily_quota"`  // per-user calls/day, default 50
+	MaxResults int               `json:"max_results"` // default 5, hard cap 10
+	DailyQuota int               `json:"daily_quota"` // per-user calls/day, default 50
 }
 
 type FetchConfig struct {
@@ -65,15 +65,29 @@ type LoopConfig struct {
 	PingIntervalSec int `json:"ping_interval_sec"` // default 2
 }
 
+// FilesConfig configures the M2 file service (/excel/v1/files, document
+// blocks, sandbox /files/input linkage). Bodies live on local disk — the
+// production host is bare-metal with no object storage (design doc §2).
+type FilesConfig struct {
+	Enabled          bool     `json:"enabled"`
+	MaxSizeMB        int      `json:"max_size_mb"`          // per file, default 20
+	MaxFilesPerUser  int      `json:"max_files_per_user"`   // default 100
+	MaxMBPerUser     int      `json:"max_mb_per_user"`      // default 500
+	TTLDays          int      `json:"ttl_days"`             // default 30
+	Extensions       []string `json:"extensions"`           // upload whitelist
+	MaxFileIdsPerRun int      `json:"max_file_ids_per_run"` // code_execution, default 5
+}
+
 // ToolsSettings is registered under config key "excel_tools".
 type ToolsSettings struct {
 	Mode string `json:"mode"` // off | strip | full
 	// Sub-configs are stored as JSON strings because the generic config
 	// manager only round-trips flat scalar fields.
-	Search string `json:"search"`
-	Fetch  string `json:"fetch"`
+	Search  string `json:"search"`
+	Fetch   string `json:"fetch"`
 	Sandbox string `json:"sandbox"`
-	Loop   string `json:"loop"`
+	Loop    string `json:"loop"`
+	Files   string `json:"files"`
 	// LogBodyMaxBytes truncates the sanitized-body debug log; 0 keeps the
 	// legacy full-body log, negative disables it.
 	LogBodyMaxBytes int  `json:"log_body_max_bytes"`
@@ -110,12 +124,23 @@ const defaultLoopJSON = `{
   "ping_interval_sec": 2
 }`
 
+const defaultFilesJSON = `{
+  "enabled": true,
+  "max_size_mb": 20,
+  "max_files_per_user": 100,
+  "max_mb_per_user": 500,
+  "ttl_days": 30,
+  "extensions": ["pdf","csv","xlsx","xls","docx","txt","md","json","png","jpg","jpeg","webp","gif"],
+  "max_file_ids_per_run": 5
+}`
+
 var defaultToolsSettings = ToolsSettings{
 	Mode:            ModeStrip,
 	Search:          defaultSearchJSON,
 	Fetch:           defaultFetchJSON,
 	Sandbox:         defaultSandboxJSON,
 	Loop:            defaultLoopJSON,
+	Files:           defaultFilesJSON,
 	LogBodyMaxBytes: 2048,
 	DebugEndpoints:  false,
 }
@@ -171,6 +196,7 @@ var (
 	fetchCache   parsedConfig[FetchConfig]
 	sandboxCache parsedConfig[SandboxConfig]
 	loopCache    parsedConfig[LoopConfig]
+	filesCache   parsedConfig[FilesConfig]
 )
 
 // GetSearchConfig returns the search executor config with defaults applied.
@@ -242,6 +268,34 @@ func GetLoopConfig() LoopConfig {
 	})
 }
 
+// GetFilesConfig returns the file-service config with defaults applied.
+func GetFilesConfig() FilesConfig {
+	return filesCache.get(defaultToolsSettings.Files, func(c *FilesConfig) {
+		if c.MaxSizeMB <= 0 {
+			c.MaxSizeMB = 20
+		}
+		if c.MaxFilesPerUser <= 0 {
+			c.MaxFilesPerUser = 100
+		}
+		if c.MaxMBPerUser <= 0 {
+			c.MaxMBPerUser = 500
+		}
+		if c.TTLDays <= 0 {
+			c.TTLDays = 30
+		}
+		if c.MaxFileIdsPerRun <= 0 {
+			c.MaxFileIdsPerRun = 5
+		}
+		if len(c.Extensions) == 0 {
+			c.Extensions = []string{"pdf", "csv", "xlsx", "xls", "docx", "txt", "md", "json", "png", "jpg", "jpeg", "webp", "gif"}
+		}
+	})
+}
+
+// FilesEnabled reports whether the M2 file service is on. When off, the
+// /excel/v1/files endpoints refuse and document blocks degrade to a notice.
+func FilesEnabled() bool { return GetFilesConfig().Enabled }
+
 // LogBodyLimit returns the sanitized-body log truncation limit in bytes.
 // 0 = no truncation (legacy), negative = disable body logging.
 func LogBodyLimit() int {
@@ -262,6 +316,7 @@ func ApplyForTest(s ToolsSettings) {
 	defaultToolsSettings.Fetch = s.Fetch
 	defaultToolsSettings.Sandbox = s.Sandbox
 	defaultToolsSettings.Loop = s.Loop
+	defaultToolsSettings.Files = s.Files
 	defaultToolsSettings.LogBodyMaxBytes = s.LogBodyMaxBytes
 	defaultToolsSettings.DebugEndpoints = s.DebugEndpoints
 }
@@ -274,6 +329,7 @@ func ResetForTest() {
 		Fetch:           defaultFetchJSON,
 		Sandbox:         defaultSandboxJSON,
 		Loop:            defaultLoopJSON,
+		Files:           defaultFilesJSON,
 		LogBodyMaxBytes: 2048,
 		DebugEndpoints:  false,
 	})

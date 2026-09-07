@@ -21,6 +21,7 @@ import (
 	"github.com/QuantumNous/new-api/oauth"
 	perfmetrics "github.com/QuantumNous/new-api/pkg/perf_metrics"
 	"github.com/QuantumNous/new-api/relay"
+	"github.com/QuantumNous/new-api/service/exceltools"
 	"github.com/QuantumNous/new-api/router"
 	"github.com/QuantumNous/new-api/service"
 	_ "github.com/QuantumNous/new-api/setting/performance_setting"
@@ -288,6 +289,9 @@ func InitResources() error {
 
 	// Initialize options, should after model.InitDB()
 	model.InitOptionMap()
+
+	// M2: expired-file sweeper (local-disk file service, bare-metal — no cron)
+	exceltools.StartExcelFileSweeper()
 
 	// 清理旧的磁盘缓存文件
 	common.CleanupOldCacheFiles()
