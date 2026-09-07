@@ -60,4 +60,45 @@ func SetExcelGatewayRouter(router *gin.Engine) {
 	filesRouter.GET("", controller.ExcelFileList)
 	filesRouter.GET("/:id", controller.ExcelFileDownload)
 	filesRouter.DELETE("/:id", controller.ExcelFileDelete)
+
+	// M4 MCP connector registry + stateless JSON-RPC proxy — the add-in
+	// tunnels all connector traffic through the gateway (same-origin), tools
+	// execute client-side.
+	mcpServers := excel.Group("/v1/mcp_servers")
+	mcpServers.Use(middleware.RouteTag("excel-gateway"))
+	mcpServers.Use(middleware.TokenAuth())
+	mcpServers.GET("", controller.ExcelMCPListModels)
+
+	mcpProxy := excel.Group("/v1/mcp")
+	mcpProxy.Use(middleware.RouteTag("excel-gateway"))
+	mcpProxy.Use(middleware.TokenAuth())
+	mcpProxy.POST("/:server_id", controller.ExcelMCPProxy)
+
+	// Icon-registry stub: the add-in backfills icon_url from here; an empty
+	// list skips silently. NOTE: the plugin's URL has no /v1/ or /api/ segment
+	// so the overlay leaves the path at the domain root. No auth (public
+	// metadata only).
+	excelRouter2 := router.Group("/mcp-registry/v0")
+	excelRouter2.Use(middleware.RouteTag("excel-gateway"))
+	excelRouter2.GET("/servers", controller.ExcelMCPRegistryStub)
+
+	// M5 skill cloud sync — the add-in hardcodes claude.ai-style paths and the
+	// overlay leaves /api/oauth/* at the domain root. Same sk- token as the
+	// rest of the Excel gateway (TokenAuth).
+	skillsRouter := router.Group("/api/oauth/organizations/:org/skills")
+	skillsRouter.Use(middleware.RouteTag("excel-gateway"))
+	skillsRouter.Use(middleware.TokenAuth())
+	skillsRouter.GET("/list-skills", controller.ExcelSkillList)
+	skillsRouter.GET("/:skill_id/instructions", controller.ExcelSkillInstructions)
+	skillsRouter.GET("/:skill_id/download", controller.ExcelSkillDownload)
+	skillsRouter.POST("/upload-skill", controller.ExcelSkillUpload)
+
+	// M5 admin management (classic panel, session auth).
+	skillAdmin := router.Group("/api/excel/skills")
+	skillAdmin.Use(middleware.RouteTag("excel-gateway"))
+	skillAdmin.Use(middleware.AdminAuth())
+	skillAdmin.GET("", controller.ExcelSkillAdminList)
+	skillAdmin.POST("", middleware.CriticalRateLimit(), controller.ExcelSkillAdminUpload)
+	skillAdmin.PUT("/:id", controller.ExcelSkillAdminUpdate)
+	skillAdmin.DELETE("/:id", controller.ExcelSkillAdminDelete)
 }

@@ -6,6 +6,7 @@ import {
   Form,
   Input,
   InputNumber,
+  Modal,
   Row,
   Select,
   Spin,
@@ -50,9 +51,17 @@ export default function SettingsExcel(props) {
     'excel_tools.sandbox': '',
     'excel_tools.loop': '',
     'excel_tools.files': '',
+    'excel_mcp.enabled': false,
+    'excel_mcp.servers': '',
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
+
+  // M5 skills admin (session-authed /api/excel/skills)
+  const [skills, setSkills] = useState([]);
+  const [skillPartition, setSkillPartition] = useState('organization');
+  const [skillOverwrite, setSkillOverwrite] = useState(false);
+  const skillFileRef = useRef(null);
 
   // Separate state for the editable model list
   const [models, setModels] = useState([]);
@@ -107,6 +116,73 @@ export default function SettingsExcel(props) {
     const next = [...models];
     next[index] = { ...next[index], [field]: value };
     syncModelsToInputs(next);
+  }
+
+  function loadSkills() {
+    API.get('/api/excel/skills')
+      .then((res) => {
+        if (res?.data?.success) setSkills(res.data.data || []);
+      })
+      .catch(() => {});
+  }
+
+  useEffect(() => {
+    loadSkills();
+  }, []);
+
+  function uploadSkillFile(file) {
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('partition_by', skillPartition);
+    if (skillOverwrite) fd.append('overwrite', 'true');
+    setLoading(true);
+    API.post('/api/excel/skills', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+      .then((res) => {
+        if (res?.data?.success) {
+          showSuccess(t('上传成功'));
+          loadSkills();
+        } else {
+          showError(res?.data?.message || t('上传失败'));
+        }
+      })
+      .catch(() => showError(t('上传失败')))
+      .finally(() => setLoading(false));
+  }
+
+  function toggleSkill(skill, enabled) {
+    API.put('/api/excel/skills/' + skill.id, { enabled })
+      .then((res) => {
+        if (res?.data?.success) {
+          setSkills((list) =>
+            list.map((s) => (s.id === skill.id ? { ...s, enabled } : s)),
+          );
+        } else {
+          showError(res?.data?.message || t('操作失败'));
+        }
+      })
+      .catch(() => showError(t('操作失败')));
+  }
+
+  function deleteSkill(skill) {
+    Modal.confirm({
+      title: t('确认删除技能'),
+      content: `${skill.name}（${skill.id}）`,
+      onOk: () => {
+        API.delete('/api/excel/skills/' + skill.id)
+          .then((res) => {
+            if (res?.data?.success) {
+              showSuccess(t('删除成功'));
+              loadSkills();
+            } else {
+              showError(res?.data?.message || t('删除失败'));
+            }
+          })
+          .catch(() => showError(t('删除失败')));
+      },
+    });
   }
 
   function onSubmit() {
@@ -502,6 +578,182 @@ export default function SettingsExcel(props) {
                 />
               </Col>
             </Row>
+          </Form.Section>
+
+          <Form.Section text={t('Excel MCP 连接器')}>
+            <Banner
+              type='info'
+              description={t(
+                'M4：为 Excel 插件提供 MCP 连接器注册表与同域 JSON-RPC 代理。工具在插件端执行，不经过模型中继计费。修改保存后约 1 分钟内自动生效，无需重启。',
+              )}
+              style={{ marginBottom: 16 }}
+            />
+            <Row gutter={16}>
+              <Col xs={24} sm={12} md={8}>
+                <Form.Switch
+                  field={'excel_mcp.enabled'}
+                  label={t('启用 MCP 连接器')}
+                  extraText={t(
+                    '开启后 /excel/v1/mcp_servers 返回下方服务器列表',
+                  )}
+                  size='default'
+                  checkedText='｜'
+                  uncheckedText='〇'
+                  onChange={handleFieldChange('excel_mcp.enabled')}
+                />
+              </Col>
+            </Row>
+            <Row gutter={16}>
+              <Col span={24}>
+                <Form.TextArea
+                  field={'excel_mcp.servers'}
+                  label={t('MCP 服务器配置（JSON）')}
+                  placeholder={
+                    '[{"id":"github","display_name":"GitHub","url":"https://mcp.example.com/mcp","headers":{"Authorization":"Bearer xxx"},"enabled":true,"timeout_sec":300,"tool_policies":{"dangerous_tool":"blocked"}}]'
+                  }
+                  extraText={t(
+                    'id 仅限小写字母/数字/-/_（≤64 字符）；headers 透传上游（如鉴权）；timeout_sec 为 tools/call 超时（默认 300，上限 600）；tool_policies 中 blocked 的工具在注册表中隐藏',
+                  )}
+                  rows={6}
+                  onChange={handleFieldChange('excel_mcp.servers')}
+                />
+              </Col>
+            </Row>
+          </Form.Section>
+
+          <Form.Section text={t('Excel 技能管理')}>
+            <Banner
+              type='info'
+              description={t(
+                'M5：技能是包含 SKILL.md 的 zip 包。organization=全体用户可见（只读），account=仅上传者可见（可在插件中编辑）。用户自传上限 50 个、单个 10MB。',
+              )}
+              style={{ marginBottom: 16 }}
+            />
+            <Row
+              gutter={16}
+              style={{ marginBottom: 12, alignItems: 'center' }}
+            >
+              <Col xs={12} sm={6} md={4}>
+                <Select
+                  value={skillPartition}
+                  onChange={setSkillPartition}
+                  style={{ width: '100%' }}
+                >
+                  <Select.Option value='organization'>
+                    {t('全体可见')}
+                  </Select.Option>
+                  <Select.Option value='account'>
+                    {t('仅上传者可见')}
+                  </Select.Option>
+                </Select>
+              </Col>
+              <Col xs={12} sm={6} md={4}>
+                <span style={{ display: 'inline-flex', gap: 6 }}>
+                  <Switch
+                    checked={skillOverwrite}
+                    onChange={setSkillOverwrite}
+                    size='small'
+                  />
+                  <span style={{ fontSize: 12 }}>{t('同名覆盖')}</span>
+                </span>
+              </Col>
+              <Col xs={24} sm={12} md={8}>
+                <input
+                  ref={skillFileRef}
+                  type='file'
+                  accept='.zip,.skill'
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    uploadSkillFile(e.target.files?.[0]);
+                    e.target.value = '';
+                  }}
+                />
+                <Button
+                  theme='solid'
+                  onClick={() => skillFileRef.current?.click()}
+                >
+                  + {t('上传技能包')}
+                </Button>
+              </Col>
+            </Row>
+            {skills.map((skill) => (
+              <div
+                key={skill.id}
+                style={{
+                  border: '1px solid var(--semi-color-border)',
+                  borderRadius: 8,
+                  padding: 12,
+                  marginBottom: 8,
+                }}
+              >
+                <Row gutter={16} style={{ alignItems: 'center' }}>
+                  <Col xs={24} md={6}>
+                    <strong>{skill.name}</strong>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: 'var(--semi-color-text-2)',
+                      }}
+                    >
+                      {skill.id}
+                    </div>
+                  </Col>
+                  <Col xs={24} md={9}>
+                    <span style={{ fontSize: 12 }}>
+                      {skill.description}
+                    </span>
+                  </Col>
+                  <Col xs={8} md={3}>
+                    <span style={{ fontSize: 12 }}>
+                      {skill.partition_by === 'organization'
+                        ? t('全体可见')
+                        : t('仅上传者可见')}
+                      {' · '}
+                      {Math.max(
+                        1,
+                        Math.round((skill.size_bytes || 0) / 1024),
+                      )}
+                      KB
+                    </span>
+                  </Col>
+                  <Col
+                    xs={16}
+                    md={6}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'flex-end',
+                      gap: 8,
+                    }}
+                  >
+                    <Switch
+                      checked={skill.enabled}
+                      onChange={(val) => toggleSkill(skill, val)}
+                      size='small'
+                      checkedText={t('启')}
+                      uncheckedText={t('停')}
+                    />
+                    <Button
+                      size='small'
+                      type='danger'
+                      onClick={() => deleteSkill(skill)}
+                    >
+                      {t('删除')}
+                    </Button>
+                  </Col>
+                </Row>
+              </div>
+            ))}
+            {!skills.length && (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: 'var(--semi-color-text-2)',
+                }}
+              >
+                {t('暂无技能，上传包含 SKILL.md 的 zip 包即可')}
+              </div>
+            )}
           </Form.Section>
 
           <Row>
