@@ -40,3 +40,9 @@ skills-lock.json
 .playwright-mcp
 web/default/public/docs/files/
 web/default/public/docs/images/
+
+# 数据库统计报告（本地生成物）
+db_report_*.html
+
+# 线上发布配置（含服务器地址，勿提交）
+deploy/release.env
