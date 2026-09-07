@@ -6,11 +6,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/QuantumNous/new-api/common"
-
-	"github.com/golang-jwt/jwt/v5"
 )
 
 // zhipuProvider implements SearchProvider on Zhipu bigmodel's web-search API
@@ -36,26 +33,12 @@ func init() {
 	})
 }
 
-// zhipuToken builds the auth bearer. Zhipu API keys are "<id>.<secret>"; the
-// documented auth scheme signs an HS256 JWT with millisecond timestamps.
-// Keys without a dot are passed through verbatim (relay-style keys).
+// zhipuToken returns the auth bearer. Zhipu's v4 API authenticates with the
+// raw API key ("Bearer <key>"); the legacy HS256-JWT scheme (id.secret keys)
+// is no longer accepted for web_search — verified against the live API
+// 2026-09-07: raw key 200, signed JWT 401 "令牌已过期或验证不正确".
 func (z *zhipuProvider) zhipuToken() string {
-	id, secret, found := strings.Cut(z.apiKey, ".")
-	if !found {
-		return z.apiKey
-	}
-	now := time.Now().UnixMilli()
-	claims := jwt.MapClaims{
-		"api_key":   id,
-		"exp":       now + 30*60*1000,
-		"timestamp": now,
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signed, err := token.SignedString([]byte(secret))
-	if err != nil {
-		return z.apiKey
-	}
-	return signed
+	return z.apiKey
 }
 
 func (z *zhipuProvider) Name() string { return "zhipu" }
@@ -129,11 +112,15 @@ func (z *zhipuProvider) Search(ctx context.Context, query string, maxResults int
 
 	results := make([]SearchResult, 0, len(parsed.SearchResult))
 	for _, r := range parsed.SearchResult {
+		// Zhipu's AI-summarized cards sometimes carry no link at all (only a
+		// "refer" marker); keep them — the content is still valuable to the
+		// model. URL-less entries are filtered later where a clickable link is
+		// actually required (client source panel).
 		url := r.Link
 		if url == "" {
 			url = r.URL
 		}
-		if url == "" || r.Title == "" {
+		if r.Title == "" {
 			continue
 		}
 		date := r.Date

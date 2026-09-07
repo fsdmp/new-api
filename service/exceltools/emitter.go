@@ -114,6 +114,10 @@ func blockTypeForResult(toolName string) string {
 }
 
 func writeBlockEvent(lw *lockedWriter, event string, payload map[string]interface{}) {
+	// Anthropic frames duplicate the event name inside the data payload
+	// (data.type); clients that dispatch on data.type instead of the SSE
+	// event: line silently drop frames without it — observed live 2026-09-07.
+	payload["type"] = event
 	encoded, err := common.Marshal(payload)
 	if err != nil {
 		return

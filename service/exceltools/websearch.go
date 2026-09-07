@@ -48,11 +48,17 @@ func (e *WebSearchExecutor) Execute(sess *Session, call *CapturedCall) *ExecResu
 		}
 	}
 
-	// Model-facing: compact numbered list within budget.
+	// Model-facing: compact numbered list within budget. URL-less AI cards
+	// (zhipu summarizes some results without a link) still contribute content.
 	var b strings.Builder
 	fmt.Fprintf(&b, "搜索结果（query: %s）：\n", query)
 	for i, r := range results {
-		line := fmt.Sprintf("%d. %s — %s\n%s\n", i+1, r.Title, r.URL, r.Snippet)
+		var line string
+		if r.URL != "" {
+			line = fmt.Sprintf("%d. %s — %s\n%s\n", i+1, r.Title, r.URL, r.Snippet)
+		} else {
+			line = fmt.Sprintf("%d. %s\n%s\n", i+1, r.Title, r.Snippet)
+		}
 		if b.Len()+len(line) > searchModelTextBudget {
 			b.WriteString("…（其余结果已省略）\n")
 			break
@@ -60,15 +66,23 @@ func (e *WebSearchExecutor) Execute(sess *Session, call *CapturedCall) *ExecResu
 		b.WriteString(line)
 	}
 
-	// Client-facing block content per Anthropic docs shape.
+	// Client-facing block content per Anthropic docs shape. The source panel
+	// renders a clickable url, so linkless entries stay model-side only; if
+	// nothing has a link, emit no block (falls back to the text result).
 	blockContent := make([]interface{}, 0, len(results))
 	for _, r := range results {
+		if r.URL == "" {
+			continue
+		}
 		blockContent = append(blockContent, map[string]interface{}{
 			"type":    "web_search_result",
 			"title":   r.Title,
 			"url":     r.URL,
 			"snippet": r.Snippet,
 		})
+	}
+	if len(blockContent) == 0 {
+		blockContent = nil
 	}
 
 	return &ExecResult{

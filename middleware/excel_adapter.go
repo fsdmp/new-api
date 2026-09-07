@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting/excel_setting"
@@ -492,17 +493,27 @@ func sanitizeExcelOutputConfig(outputConfig interface{}) interface{} {
 
 // ---------- Chinese language injection ----------
 
+// weekdaysCN maps time.Weekday to Chinese names for the injected date line.
+var weekdaysCN = [...]string{"周日", "周一", "周二", "周三", "周四", "周五", "周六"}
+
 func injectExcelChineseLanguage(body map[string]interface{}) {
+	// The routed models have no clock of their own; without the current date
+	// they fabricate one when the task mentions "today"/"latest" (observed
+	// live 2026-09-07: the model searched "人民币兑美元汇率 今日 2026-01-15" —
+	// a made-up date — and the provider returned zero results).
+	now := time.Now()
+	dated := fmt.Sprintf("%s\n今天的日期是 %s（%s）。", excelLangInstruction,
+		now.Format("2006-01-02"), weekdaysCN[now.Weekday()])
 	// System prompt injection: prepend + append to sandwich client's English prompt
 	switch s := body["system"].(type) {
 	case string:
-		body["system"] = excelLangInstruction + s + excelLangInstructionSuffix
+		body["system"] = dated + s + excelLangInstructionSuffix
 	case []interface{}:
-		prefixBlock := map[string]interface{}{"type": "text", "text": excelLangInstruction}
+		prefixBlock := map[string]interface{}{"type": "text", "text": dated}
 		suffixBlock := map[string]interface{}{"type": "text", "text": excelLangInstructionSuffix}
 		body["system"] = append(append([]interface{}{prefixBlock}, s...), suffixBlock)
 	default:
-		body["system"] = excelLangInstruction
+		body["system"] = dated
 	}
 
 	// Per-user-message reinforcement

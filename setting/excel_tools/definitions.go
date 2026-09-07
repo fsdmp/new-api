@@ -50,7 +50,11 @@ var toolDefinitions = []ToolDefinition{
 		TypePrefix: "web_search_",
 		Description: "Search the web for current information (prices, news, recent events). " +
 			"Returns a list of results with title, url and snippet. " +
-			"Use for facts you are unsure about or that may be outdated. Use at most once per turn unless truly necessary.",
+			"Use for facts you are unsure about or that may be outdated. Use at most once per turn unless truly necessary. " +
+			"When the question is about \"today\" or \"latest\" and the current date is stated in the context, " +
+			"include that date in the query so stale pages do not outrank fresh ones; " +
+			"never invent a date — if unsure, search without one. " +
+			"If a query returns no results, retry once with shorter, more common wording.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
