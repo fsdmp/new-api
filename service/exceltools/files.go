@@ -2,6 +2,7 @@ package exceltools
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -380,4 +381,75 @@ func DocumentHintForBlock(blockMap map[string]interface{}, userId int) string {
 		return DocumentBlockNotFoundHint
 	}
 	return DocumentBlockHint(row)
+}
+
+// maxInlineImageBytes caps file-sourced images inlined into messages (the
+// Anthropic image-block limit is 5MB, and base64 blobs replay on every turn of
+// the conversation history).
+const maxInlineImageBytes = 5 << 20
+
+// ImageBlockFileNotFoundHint replaces file-sourced image blocks that cannot be
+// resolved (missing / expired / foreign / oversize) — same hint philosophy as
+// the document branch: explicit model feedback beats silently sending a broken
+// empty image.
+const ImageBlockFileNotFoundHint = "[用户引用了一个图片附件，但图片不存在、已过期或超出可内联大小（>5MB）。请提示用户重新上传或改用文档附件。]"
+
+// rewriteBlockAsTextHint replaces a content block's contents with a text hint
+// in place (clears old fields so the shape matches a fresh text block).
+func rewriteBlockAsTextHint(blockMap map[string]interface{}, hint string) {
+	for k := range blockMap {
+		delete(blockMap, k)
+	}
+	blockMap["type"] = "text"
+	blockMap["text"] = hint
+}
+
+// InlineImageFileBlock resolves a file-sourced image block (source.type ==
+// "file", as the add-in always sends for server-uploaded images) by reading the
+// stored body and rewriting the source to base64 in place — the standard
+// converter (service/convert.go) only understands base64 sources, so leaving a
+// file source through would ship the model an empty data: URL.
+//
+// Returns true when the block was handled (inlined, or rewritten as a hint).
+// base64 / url sources return false untouched (regular pipeline). userId
+// scopes the ownership check; missing and foreign files are deliberately
+// indistinguishable.
+func InlineImageFileBlock(blockMap map[string]interface{}, userId int) bool {
+	src, _ := blockMap["source"].(map[string]interface{})
+	if src == nil {
+		return false
+	}
+	if t, _ := src["type"].(string); t != "file" {
+		return false
+	}
+	fail := func() bool {
+		rewriteBlockAsTextHint(blockMap, ImageBlockFileNotFoundHint)
+		return true
+	}
+	if !excel_tools.FilesEnabled() {
+		return fail()
+	}
+	fileID, _ := src["file_id"].(string)
+	if !ValidExcelFileID(fileID) {
+		return fail()
+	}
+	row, f, err := OpenExcelFile(fileID, userId)
+	if err != nil {
+		return fail()
+	}
+	defer f.Close()
+	if row.SizeBytes <= 0 || row.SizeBytes > maxInlineImageBytes {
+		return fail()
+	}
+	data, err := io.ReadAll(io.LimitReader(f, maxInlineImageBytes+1))
+	if err != nil || len(data) > maxInlineImageBytes || len(data) == 0 {
+		return fail()
+	}
+	for k := range src {
+		delete(src, k)
+	}
+	src["type"] = "base64"
+	src["media_type"] = row.Mime
+	src["data"] = base64.StdEncoding.EncodeToString(data)
+	return true
 }

@@ -270,6 +270,16 @@ func sanitizeExcelContentBlocks(blocks []interface{}, userId int) []interface{} 
 			})
 			continue
 		}
+		if blockType == "image" && exceltools.InlineImageFileBlock(blockMap, userId) {
+			// M2: file-sourced images (server uploads) are inlined to base64 in
+			// place — the standard converter only understands base64 sources.
+			// Blocks rewritten as a not-found hint are appended here; surviving
+			// image blocks fall through to the whitelist below as usual.
+			if t, _ := blockMap["type"].(string); t != "image" {
+				result = append(result, blockMap)
+				continue
+			}
+		}
 		if !excelSupportedBlockTypes[blockType] {
 			// History blocks echoing our synthesized server-tool blocks from a
 			// previous turn: convert (not drop) so the model keeps the tool

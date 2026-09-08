@@ -19,17 +19,22 @@ func excelFileError(c *gin.Context, status int, typ, message string) {
 	c.JSON(status, gin.H{"type": "error", "error": gin.H{"type": typ, "message": message}})
 }
 
-// fileViewerResponse is the Anthropic file object shape.
+// fileViewerResponse is the Anthropic file object shape. The add-in Zod-validates
+// the upload response against the full FileMetadata schema, so type / mime_type /
+// downloadable are required (mime kept as a legacy alias for older consumers).
 func fileViewerResponse(f *model.ExcelFile) gin.H {
 	return gin.H{
-		"id":          f.Id,
-		"filename":    f.Filename,
-		"size_bytes":  f.SizeBytes,
-		"mime":        f.Mime,
-		"purpose":     f.Purpose,
-		"status":      "active",
-		"created_at":  strconv.FormatInt(f.CreatedAt, 10),
-		"expires_at":  strconv.FormatInt(f.ExpiresAt, 10),
+		"type":         "file",
+		"id":           f.Id,
+		"filename":     f.Filename,
+		"size_bytes":   f.SizeBytes,
+		"mime_type":    f.Mime,
+		"mime":         f.Mime,
+		"purpose":      f.Purpose,
+		"status":       "active",
+		"created_at":   strconv.FormatInt(f.CreatedAt, 10),
+		"expires_at":   strconv.FormatInt(f.ExpiresAt, 10),
+		"downloadable": true,
 	}
 }
 

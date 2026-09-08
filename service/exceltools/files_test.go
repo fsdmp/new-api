@@ -88,6 +88,58 @@ func TestDocumentHintsCoverStates(t *testing.T) {
 	}
 }
 
+func TestInlineImageFileBlock(t *testing.T) {
+	applyFilesConfig(t, testFilesJSON)
+
+	// base64 / url sources: untouched, returns false
+	for _, st := range []string{"base64", "url"} {
+		block := map[string]interface{}{
+			"type":   "image",
+			"source": map[string]interface{}{"type": st, "media_type": "image/png", "data": "xx"},
+		}
+		if InlineImageFileBlock(block, 1) {
+			t.Errorf("%s source must not be handled", st)
+		}
+		if s, _ := block["source"].(map[string]interface{}); s["type"] != st {
+			t.Errorf("%s source must pass through unchanged", st)
+		}
+	}
+
+	// file source, invalid file_id -> text hint, block rewritten
+	block := map[string]interface{}{
+		"type":   "image",
+		"source": map[string]interface{}{"type": "file", "file_id": "not-a-file-id"},
+	}
+	if !InlineImageFileBlock(block, 1) {
+		t.Fatal("invalid file_id must be handled")
+	}
+	if block["type"] != "text" || !strings.Contains(block["text"].(string), "图片附件") {
+		t.Errorf("want text hint, got %#v", block)
+	}
+	if _, has := block["source"]; has {
+		t.Error("hint rewrite must clear the source field")
+	}
+
+	// file source, well-formed id but no DB row -> text hint
+	block = map[string]interface{}{
+		"type":   "image",
+		"source": map[string]interface{}{"type": "file", "file_id": "file-0123456789abcdef01234567"},
+	}
+	if !InlineImageFileBlock(block, 1) || block["type"] != "text" {
+		t.Errorf("missing row must become hint, got %#v", block)
+	}
+
+	// service disabled -> text hint
+	applyFilesConfig(t, `{"enabled":false,"max_size_mb":20,"max_files_per_user":100,"max_mb_per_user":500,"ttl_days":30,"extensions":["png"],"max_file_ids_per_run":5}`)
+	block = map[string]interface{}{
+		"type":   "image",
+		"source": map[string]interface{}{"type": "file", "file_id": "file-0123456789abcdef01234567"},
+	}
+	if !InlineImageFileBlock(block, 1) || block["type"] != "text" {
+		t.Errorf("disabled service must become hint, got %#v", block)
+	}
+}
+
 func TestCodeExecutionSchemaHasFileIds(t *testing.T) {
 	applyFilesConfig(t, testFilesJSON)
 	for _, def := range excel_tools.ToolDefinitions() {
