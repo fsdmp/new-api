@@ -1,9 +1,11 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service/exceltools"
 	"github.com/QuantumNous/new-api/setting/excel_tools"
@@ -48,6 +50,11 @@ func ExcelFileUpload(c *gin.Context) {
 
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
+		// The client only sees the status code; without this line a non-multipart
+		// POST (e.g. the add-in's capability probe) is indistinguishable from a
+		// quota rejection in the logs (observed live: sub-ms 400s with no cause).
+		common.SysLog(fmt.Sprintf("[excel-files] upload rejected: not multipart or missing field: content_type=%s content_length=%d remote=%s err=%v",
+			c.ContentType(), c.Request.ContentLength, c.ClientIP(), err))
 		excelFileError(c, http.StatusBadRequest, "invalid_request_error", "multipart field 'file' is required")
 		return
 	}
@@ -60,6 +67,8 @@ func ExcelFileUpload(c *gin.Context) {
 
 	row, err := exceltools.SaveExcelFile(userId, fileHeader.Filename, c.PostForm("purpose"), fileHeader.Size, src)
 	if err != nil {
+		common.SysLog(fmt.Sprintf("[excel-files] upload rejected: user=%d filename=%q size=%d err=%v",
+			userId, fileHeader.Filename, fileHeader.Size, err))
 		excelFileError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 		return
 	}

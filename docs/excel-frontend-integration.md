@@ -120,8 +120,12 @@ Content-Type: application/json
 500MB、TTL 30 天、扩展名白名单（pdf/csv/xlsx/xls/docx/txt/md/json/png/jpg/
 jpeg/webp/gif）、单次 run 最多引用 5 个 file_id。
 
-沙箱内只读桥接路径：`/files/input/<file_id>/<原始文件名>`（硬链接，代码执行工具
-的提示词里注入）。消息里 `document` 块引用 file_id 时网关自动校验归属并注入内容。
+沙箱内只读桥接路径：`/files/input/<file_id>/<原始文件名>`（硬链接）。消息里的文件
+引用块由网关自动处理：`document` 块（`source.file_id`）与 `container_upload` 块
+（扁平 `file_id`，vendor 对服务端上传文档的实际形态）都会被改写为沙箱读取提示，
+且**消息到达时即把文件硬链进 `/files/input`**——模型按 vendor 系统提示词的
+`glob.glob(INPUT_DIR)` 指引或提示里的 file_ids 调用 code_execution 都能读到文件。
+归属校验：越权与不存在的 file_id 不可区分，均提示「不存在或已过期」。
 
 ---
 

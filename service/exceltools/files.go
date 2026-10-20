@@ -383,6 +383,39 @@ func DocumentHintForBlock(blockMap map[string]interface{}, userId int) string {
 	return DocumentBlockHint(row)
 }
 
+// ContainerUploadHintForBlock inspects a vendor container_upload block — the
+// add-in sends server-uploaded documents as a flat {type:"container_upload",
+// file_id} with no source wrapper (vendor bundle:288073), a shape the Anthropic
+// document-block path never sees. Returns the text hint to substitute for it.
+//
+// The backing file is also linked into the sandbox input dir right away: the
+// vendor system prompt tells the model to discover uploads by globbing
+// INPUT_DIR (not by passing file_ids), so the file must be physically staged
+// for that guidance to hold (observed live 2026-09-08: the model ls'd
+// /files/input, found it empty, and told the user the upload failed).
+// Idempotent (hard link, EEXIST fast path) and the same ownership checks as
+// stageFilesForRun — a foreign or expired id is indistinguishable from a
+// missing one.
+func ContainerUploadHintForBlock(blockMap map[string]interface{}, userId int) string {
+	if !excel_tools.FilesEnabled() {
+		return DocumentBlockDisabledHint
+	}
+	fileID, _ := blockMap["file_id"].(string)
+	if !ValidExcelFileID(fileID) {
+		return DocumentBlockNotFoundHint
+	}
+	if _, err := LinkExcelFileIntoSandbox(fileID, userId); err != nil {
+		return DocumentBlockNotFoundHint
+	}
+	// Ownership was validated by the link; re-read the row for the hint text
+	// (filename / mime / size) — one extra PK query, documents are rare.
+	row, err := model.GetExcelFile(fileID, userId)
+	if err != nil {
+		return DocumentBlockNotFoundHint
+	}
+	return DocumentBlockHint(row)
+}
+
 // maxInlineImageBytes caps file-sourced images inlined into messages (the
 // Anthropic image-block limit is 5MB, and base64 blobs replay on every turn of
 // the conversation history).

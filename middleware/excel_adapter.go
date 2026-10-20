@@ -270,6 +270,19 @@ func sanitizeExcelContentBlocks(blocks []interface{}, userId int) []interface{} 
 			})
 			continue
 		}
+		if blockType == "container_upload" {
+			// M2: server-uploaded documents arrive as flat container_upload
+			// blocks (file_id at the top level — the vendor shape, distinct
+			// from the Anthropic document block). They never reach the model:
+			// rewritten as a sandbox-read hint, and the helper links the file
+			// into the sandbox input dir so the model's INPUT_DIR glob (the
+			// vendor system prompt's guidance) finds it even without file_ids.
+			result = append(result, map[string]interface{}{
+				"type": "text",
+				"text": exceltools.ContainerUploadHintForBlock(blockMap, userId),
+			})
+			continue
+		}
 		if blockType == "image" && exceltools.InlineImageFileBlock(blockMap, userId) {
 			// M2: file-sourced images (server uploads) are inlined to base64 in
 			// place — the standard converter only understands base64 sources.

@@ -88,6 +88,30 @@ func TestDocumentHintsCoverStates(t *testing.T) {
 	}
 }
 
+func TestContainerUploadHintForStates(t *testing.T) {
+	applyFilesConfig(t, testFilesJSON)
+	block := map[string]interface{}{
+		"type":    "container_upload",
+		"file_id": "file-0123456789abcdef01234567", // flat field, no source wrapper
+	}
+	// no DB row (model layer unavailable in unit tests) -> not-found hint,
+	// and the hint must not leak the file id back
+	if got := ContainerUploadHintForBlock(block, 1); !strings.Contains(got, "文件不存在或已过期") {
+		t.Errorf("want not-found hint, got %q", got)
+	}
+	// malformed id -> not-found
+	block["file_id"] = "not-a-file-id"
+	if got := ContainerUploadHintForBlock(block, 1); !strings.Contains(got, "文件不存在或已过期") {
+		t.Errorf("want not-found hint for malformed id, got %q", got)
+	}
+	// service disabled -> disabled hint
+	applyFilesConfig(t, `{"enabled":false,"max_size_mb":20,"max_files_per_user":100,"max_mb_per_user":500,"ttl_days":30,"extensions":["xlsx"],"max_file_ids_per_run":5}`)
+	block["file_id"] = "file-0123456789abcdef01234567"
+	if got := ContainerUploadHintForBlock(block, 1); !strings.Contains(got, "未启用文件服务") {
+		t.Errorf("want disabled hint, got %q", got)
+	}
+}
+
 func TestInlineImageFileBlock(t *testing.T) {
 	applyFilesConfig(t, testFilesJSON)
 
