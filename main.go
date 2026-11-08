@@ -2,13 +2,17 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -205,10 +209,39 @@ func main() {
 	// Log startup success message
 	common.LogStartupSuccess(startTime, port)
 
-	err = server.Run(":" + port)
-	if err != nil {
-		common.FatalLog("failed to start HTTP server: " + err.Error())
+	// 不设任何 http.Server 超时：SSE 流式转发依赖无写超时
+	// （STREAMING_TIMEOUT 空闲容忍默认 300s、RELAY_TIMEOUT=0 无总时长上限），设了会腰斩长流
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: server,
 	}
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			common.FatalLog("failed to start HTTP server: " + err.Error())
+		}
+	}()
+
+	// 优雅关停（零停机蓝绿发布的 drain 端）：SIGTERM 后 Shutdown 只等在途 handler 返回、
+	// 不掐请求 ctx——进行中的流式请求能完整跑完。drain 窗口 SHUTDOWN_GRACE（秒，默认 180）。
+	// 顺序保证（资金正确性）：Shutdown 返回 → 记账已写入批量缓冲 → FlushBatchUpdate 全量落库
+	// → defer CloseDB。注意被 hijack 的 WebSocket（/v1/realtime）不被 Shutdown 等待，进程退出才断。
+	// 超时未排空则记日志后随进程退出兜底（对应 graceful.sh 侧 DRAIN_TIMEOUT 的 KILL）。
+	grace := common.GetEnvOrDefault("SHUTDOWN_GRACE", 180)
+	sigCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	<-sigCtx.Done()
+	common.SysLog(fmt.Sprintf("shutdown signal received, draining in-flight requests up to %ds", grace))
+
+	drainCtx, cancel := context.WithTimeout(context.Background(), time.Duration(grace)*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(drainCtx); err != nil {
+		common.SysLog("graceful shutdown unfinished: " + err.Error())
+	}
+	if common.BatchUpdateEnabled {
+		model.FlushBatchUpdate()
+	}
+	common.SysLog("shutdown complete")
 }
 
 func InjectUmamiAnalytics() {

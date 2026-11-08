@@ -188,13 +188,16 @@ docker-push:
 
 SERVER        ?=
 REMOTE_DIR    ?=
-# 线上二进制名（与本地构建名解耦：现网为 fsdm-new-api3000，带端口后缀）
+# 线上二进制名（应急链专用：蓝绿发布走 releases/<ver>/，不用这个名字）
 REMOTE_BIN    ?= $(APP_NAME)
-# 启动参数（原样传给二进制，如 --log-dir）
+# 启动参数（应急链专用，原样传给二进制，如 --log-dir）
 REMOTE_START_ARGS ?=
 HEALTH_PORT   ?= 3000
 HEALTH_PATH   ?= /api/status
 RELEASE_ARCH  ?= amd64
+# 蓝绿发布：build.zip 传输落点（graceful.sh 从 $(REMOTE_HOME)/build.zip 解包）
+REMOTE_HOME    ?= /root/newapi
+GRACEFUL_SCRIPT := deploy/graceful.sh
 SSH           := ssh
 SCP           := scp
 SHA256        := $(shell command -v sha256sum >/dev/null 2>&1 && echo sha256sum || echo shasum -a 256)
@@ -237,8 +240,19 @@ setup-release:
 release-build: release-env build-all-frontends build-linux-$(RELEASE_ARCH)
 	@echo "$(GREEN)✓ 发布产物 $(RELEASE_BIN) ($(VERSION) $(GIT_COMMIT))$(NC)"
 
-# 上传（不重启）：scp 到 .new → sha256 校验 → 原子替换，旧版本保留为 .prev
-# 原子 mv 避免运行中二进制被覆写（Linux Text file busy），并天然支持回滚
+# 蓝绿上传（不切流）：打 $(OUTPUT_DIR)/build.zip（内含 build/linux_<arch>/ 完整目录）→
+# scp 到 REMOTE_HOME；远端 graceful.sh 解包到 releases/<version>/。zip 内路径必须是
+# build/linux_<arch>/fsdm-new-api（从仓库根打包保证），与 graceful.sh 解包预期对齐。
+.PHONY: bg-upload
+bg-upload: release-env release-build
+	@rm -f $(OUTPUT_DIR)/build.zip
+	zip -qr $(OUTPUT_DIR)/build.zip $(OUTPUT_DIR)/linux_$(RELEASE_ARCH)
+	$(SCP) $(OUTPUT_DIR)/build.zip $(SERVER):$(REMOTE_HOME)/build.zip
+	@echo "$(GREEN)✓ build.zip → $(SERVER):$(REMOTE_HOME)/（make release 蓝绿切换生效）$(NC)"
+
+# 【应急链】上传（不重启）：scp 到 .new → sha256 校验 → 原子替换，旧版本保留为 .prev
+# 原子 mv 避免运行中二进制被覆写（Linux Text file busy）；蓝绿时代仅救援/兜底用
+# （会用错端口起进程，见 deploy/BLUEGREEN.md 应急 runbook）
 .PHONY: upload
 upload: release-env release-build
 	@echo "$(YELLOW)上传 → $(SERVER):$(REMOTE_DIR)/$(REMOTE_BIN) ...$(NC)"
@@ -249,9 +263,9 @@ upload: release-env release-build
 		if [ -f $(REMOTE_BIN) ]; then mv -f $(REMOTE_BIN) $(REMOTE_BIN).prev; fi && \
 		mv $(REMOTE_BIN).new $(REMOTE_BIN) && chmod +x $(REMOTE_BIN) && \
 		(ls -lh $(REMOTE_BIN)* 2>/dev/null || true)"
-	@echo "$(GREEN)✓ 上传完成（未重启；make release 会继续重启 + 健康检查）$(NC)"
+	@echo "$(GREEN)✓ 上传完成（未重启；应急链后续：make restart-service）$(NC)"
 
-# 重启服务：上传 deploy/release-restart.sh（优雅停止 + nohup 拉起）并执行
+# 【应急链】重启服务：上传 deploy/release-restart.sh（pkill 式，秒级 502 窗口）并执行
 .PHONY: restart-service
 restart-service:
 	$(check-release-env)
@@ -259,7 +273,7 @@ restart-service:
 	@$(SCP) -q $(RESTART_SCRIPT) $(SERVER):$(REMOTE_DIR)/release-restart.sh
 	@$(SSH) $(SERVER) "sh $(REMOTE_DIR)/release-restart.sh $(REMOTE_BIN) $(REMOTE_DIR) $(REMOTE_START_ARGS)"
 
-# 进程存活检查（失败时打印 output.log）
+# 【应急链】进程存活检查（失败时打印 output.log）
 .PHONY: check-process
 check-process:
 	$(check-release-env)
@@ -269,7 +283,7 @@ check-process:
 		exit 1; \
 	fi
 
-# 健康检查：进程存活 + 轮询健康端点
+# 【应急链】健康检查：进程存活 + 轮询健康端点
 .PHONY: verify-release
 verify-release: check-process
 	@echo "$(YELLOW)健康检查 http://127.0.0.1:$(HEALTH_PORT)$(HEALTH_PATH) ...$(NC)"
@@ -284,33 +298,31 @@ verify-release: check-process
 	$(SSH) $(SERVER) "tail -n 30 $(REMOTE_DIR)/output.log 2>/dev/null"; \
 	exit 1
 
-# 一键发布：上传 → 重启 → 健康检查（任一步失败即终止）
+# 一键零停机发布：蓝绿上传 → 下发 graceful.sh → 远端蓝绿切换
+# （双端口 3000/3001 + APISIX route 原子切流 + 旧进程 drain，全程无 502、在途 SSE 流跑完；
+#   原理与运维要点见 deploy/BLUEGREEN.md）
 .PHONY: release
-release: upload
-	@$(MAKE) restart-service
-	@$(MAKE) verify-release
-	@echo "$(GREEN)✓ 发布完成: $(VERSION) ($(GIT_COMMIT)) → $(SERVER):$(REMOTE_DIR)$(NC)"
+release: bg-upload
+	@$(SCP) -q $(GRACEFUL_SCRIPT) $(SERVER):$(REMOTE_DIR)/graceful.sh
+	@$(SSH) $(SERVER) "cd $(REMOTE_DIR) && sh graceful.sh deploy $(VERSION) $(GIT_COMMIT)"
+	@echo "$(GREEN)✓ 零停机发布完成: $(VERSION) ($(GIT_COMMIT)) → $(SERVER)$(NC)"
 
-# 回滚：.prev 换回并重启；问题现场保留为 .bad
+# 回滚（零停机）：缺省回上一版本；指定版本 make rollback ARGS=v20261108-1030。
+# 快路径=对偶端口进程还在（秒级切回）；慢路径=从 releases/<v>/ 起进程→门禁→切流。
 .PHONY: rollback
 rollback:
 	$(check-release-env)
-	@echo "$(YELLOW)回滚到上一版本 ...$(NC)"
-	@$(SSH) $(SERVER) "cd $(REMOTE_DIR) && test -f $(REMOTE_BIN).prev || { echo 'no $(REMOTE_BIN).prev'; exit 1; } && \
-		mv -f $(REMOTE_BIN) $(REMOTE_BIN).bad && mv $(REMOTE_BIN).prev $(REMOTE_BIN) && chmod +x $(REMOTE_BIN)"
-	@$(MAKE) restart-service
-	@$(MAKE) verify-release
-	@echo "$(GREEN)✓ 已回滚（问题现场保留在 $(REMOTE_DIR)/$(REMOTE_BIN).bad）$(NC)"
+	@$(SCP) -q $(GRACEFUL_SCRIPT) $(SERVER):$(REMOTE_DIR)/graceful.sh
+	@$(SSH) $(SERVER) "cd $(REMOTE_DIR) && sh graceful.sh rollback $(ARGS)"
+	@echo "$(GREEN)✓ 回滚命令已执行（详见上方 graceful.sh 输出）$(NC)"
 
-# 查看线上状态：进程 + 二进制清单 + 日志尾 + 健康端点响应片段
+# 查看线上蓝绿状态：route 指向 / 活跃版本端口 / 进程 / releases 清单 / healthz
+# （scp 幂等，兼做首次使用前的脚本 bootstrap）
 .PHONY: release-status
 release-status:
 	$(check-release-env)
-	@$(SSH) $(SERVER) "pgrep -af '[.]/$(REMOTE_BIN)' || echo '(进程未运行)'"
-	@echo ""
-	@$(SSH) $(SERVER) "ls -lh $(REMOTE_DIR)/$(REMOTE_BIN)* 2>/dev/null; echo; tail -n 5 $(REMOTE_DIR)/output.log 2>/dev/null"
-	@echo ""
-	@$(SSH) $(SERVER) "curl -fsS --max-time 3 http://127.0.0.1:$(HEALTH_PORT)$(HEALTH_PATH) | head -c 300; echo"
+	@$(SCP) -q $(GRACEFUL_SCRIPT) $(SERVER):$(REMOTE_DIR)/graceful.sh
+	@$(SSH) $(SERVER) "cd $(REMOTE_DIR) && sh graceful.sh status"
 
 # 上传 excel 沙箱组件并远端验证。
 # 两种 runner 二选一（excel_tools.sandbox.runner 配置）：

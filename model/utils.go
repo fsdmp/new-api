@@ -39,6 +39,14 @@ func InitBatchUpdater() {
 	})
 }
 
+// FlushBatchUpdate 同步冲刷批量配额缓冲（优雅关停时调用，main.go 在 srv.Shutdown 返回后执行）。
+// 并发安全：与后台 InitBatchUpdater 及请求 goroutine 的 addNewRecord 并发——batchUpdate() 在
+// 各 type 锁内做整 map 交换，并发两次调用退化为一次拿到数据、一次拿到空 map；落库全部是
+// SQL 侧自增（gorm.Expr("quota + ?")），不存在丢失更新。无数据时幂等直接返回。
+func FlushBatchUpdate() {
+	batchUpdate()
+}
+
 func addNewRecord(type_ int, id int, value int) {
 	batchUpdateLocks[type_].Lock()
 	defer batchUpdateLocks[type_].Unlock()

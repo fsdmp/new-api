@@ -39,6 +39,28 @@ func TestStatus(c *gin.Context) {
 	return
 }
 
+// GetHealthz 进程级存活 + 版本指纹（零停机蓝绿发布门禁用；公开、无鉴权）。
+// deploy/graceful.sh 以 grep "commit":"<sha>" 校验新版本真的起来了。
+// 注意与 excel 网关的 Healthz（/excel/healthz）区分，勿重名。
+func GetHealthz(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "ok",
+		"version": common.Version,
+		"commit":  common.GitCommit,
+		"build":   common.BuildTime,
+	})
+}
+
+// GetReadyz 就绪探针：DB 连通才 200。PingDB 带 10s 成功缓存，
+// 进程刚启动（蓝绿 green 门禁场景）缓存必 miss，必然真实 ping。
+func GetReadyz(c *gin.Context) {
+	if err := model.PingDB(); err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unready"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "ready"})
+}
+
 func GetStatus(c *gin.Context) {
 
 	cs := console_setting.GetConsoleSetting()
