@@ -398,11 +398,25 @@ func IncreaseTokenQuota(tokenId int, key string, quota int) (err error) {
 			}
 		})
 	}
+	// 不留痕账号：额度照常变动，但不累计 used_quota、不刷新 accessed_time
+	if IsTracelessToken(tokenId) {
+		if common.BatchUpdateEnabled {
+			addNewRecord(BatchUpdateTypeTokenQuotaNoStats, tokenId, quota)
+			return nil
+		}
+		return changeTokenRemainQuota(tokenId, quota)
+	}
 	if common.BatchUpdateEnabled {
 		addNewRecord(BatchUpdateTypeTokenQuota, tokenId, quota)
 		return nil
 	}
 	return increaseTokenQuota(tokenId, quota)
+}
+
+// changeTokenRemainQuota 仅更新 remain_quota，用于不留痕账号的额度退回：
+// 额度照常变动，但不累计 used_quota、不刷新 accessed_time。
+func changeTokenRemainQuota(id int, delta int) (err error) {
+	return DB.Model(&Token{}).Where("id = ?", id).Update("remain_quota", gorm.Expr("remain_quota + ?", delta)).Error
 }
 
 func increaseTokenQuota(id int, quota int) (err error) {
@@ -427,6 +441,14 @@ func DecreaseTokenQuota(id int, key string, quota int) (err error) {
 				common.SysLog("failed to decrease token quota: " + err.Error())
 			}
 		})
+	}
+	// 不留痕账号：额度照常扣减，但不累计 used_quota、不刷新 accessed_time
+	if IsTracelessToken(id) {
+		if common.BatchUpdateEnabled {
+			addNewRecord(BatchUpdateTypeTokenQuotaNoStats, id, -quota)
+			return nil
+		}
+		return changeTokenRemainQuota(id, -quota)
 	}
 	if common.BatchUpdateEnabled {
 		addNewRecord(BatchUpdateTypeTokenQuota, id, -quota)

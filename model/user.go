@@ -1004,6 +1004,10 @@ func UpdateUserLastLoginAt(id int) {
 }
 
 func UpdateUserUsedQuotaAndRequestCount(id int, quota int) {
+	// 不留痕账号：不累计已用额度与请求数（余额扣减不受影响）
+	if IsTracelessUser(id) {
+		return
+	}
 	if common.BatchUpdateEnabled {
 		addNewRecord(BatchUpdateTypeUsedQuota, id, quota)
 		addNewRecord(BatchUpdateTypeRequestCount, id, 1)

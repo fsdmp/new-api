@@ -160,6 +160,10 @@ func RecordTopupLog(userId int, content string, callerIp string, paymentMethod s
 
 func RecordErrorLog(c *gin.Context, userId int, channelId int, modelName string, tokenName string, content string, tokenId int, useTimeSeconds int,
 	isStream bool, group string, other map[string]interface{}) {
+	// 不留痕账号：不写错误日志
+	if IsTracelessRequest(c) {
+		return
+	}
 	logger.LogInfo(c, fmt.Sprintf("record error log: userId=%d, channelId=%d, modelName=%s, tokenName=%s, content=%s", userId, channelId, modelName, tokenName, common.LocalLogPreview(content)))
 	username := c.GetString("username")
 	requestId := c.GetString(common.RequestIdKey)
@@ -221,6 +225,10 @@ type RecordConsumeLogParams struct {
 
 func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams) {
 	if !common.LogConsumeEnabled {
+		return
+	}
+	// 不留痕账号：不写消费日志，也不进看板数据（LogQuotaData 仅在此处被调用）
+	if IsTracelessRequest(c) {
 		return
 	}
 	logger.LogInfo(c, fmt.Sprintf("record consume log: userId=%d, params=%s", userId, common.GetJsonString(params)))
@@ -286,6 +294,10 @@ type RecordTaskBillingLogParams struct {
 
 func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
 	if params.LogType == LogTypeConsume && !common.LogConsumeEnabled {
+		return
+	}
+	// 不留痕账号：不写任务计费日志
+	if IsTracelessUser(params.UserId) {
 		return
 	}
 	username, _ := GetUsernameById(params.UserId, false)

@@ -14,6 +14,9 @@ import (
 const (
 	BatchUpdateTypeUserQuota = iota
 	BatchUpdateTypeTokenQuota
+	// BatchUpdateTypeTokenQuotaNoStats 不留痕账号的令牌额度变动：仅更新 remain_quota，
+	// 不累计 used_quota、不刷新 accessed_time（与 BatchUpdateTypeTokenQuota 分开累计，落库互不冲突）
+	BatchUpdateTypeTokenQuotaNoStats
 	BatchUpdateTypeUsedQuota
 	BatchUpdateTypeChannelUsedQuota
 	BatchUpdateTypeRequestCount
@@ -93,6 +96,11 @@ func batchUpdate() {
 				err := increaseTokenQuota(key, value)
 				if err != nil {
 					common.SysLog("failed to batch update token quota: " + err.Error())
+				}
+			case BatchUpdateTypeTokenQuotaNoStats:
+				err := changeTokenRemainQuota(key, value)
+				if err != nil {
+					common.SysLog("failed to batch update token remain quota: " + err.Error())
 				}
 			case BatchUpdateTypeChannelUsedQuota:
 				updateChannelUsedQuota(key, value)

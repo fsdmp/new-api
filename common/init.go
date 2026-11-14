@@ -109,6 +109,9 @@ func InitEnv() {
 	GeminiSafetySetting = GetEnvOrDefaultString("GEMINI_SAFETY_SETTING", "BLOCK_NONE")
 	CohereSafetySetting = GetEnvOrDefaultString("COHERE_SAFETY_SETTING", "NONE")
 
+	// 不留痕账号名单（逗号分隔用户名）：命中账号照常计费，但不写日志、不进账号关联统计
+	InitTracelessUsers(GetEnvOrDefaultString("TRACELESS_USERS", ""))
+
 	// Initialize rate limit variables
 	GlobalApiRateLimitEnable = GetEnvOrDefaultBool("GLOBAL_API_RATE_LIMIT_ENABLE", true)
 	GlobalApiRateLimitNum = GetEnvOrDefault("GLOBAL_API_RATE_LIMIT", 180)
