@@ -1,10 +1,12 @@
 package claude
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -41,6 +43,54 @@ func maybeMarkClaudeRefusal(c *gin.Context, stopReason string) {
 	}
 	if strings.EqualFold(stopReason, "refusal") {
 		common.SetContextKey(c, constant.ContextKeyAdminRejectReason, "claude_stop_reason=refusal")
+	}
+}
+
+// buildClaudeFileMessage 将 OpenAI 格式的内联文件内容转换为 Claude 内容块。
+// 依据文件扩展名与内容推断 MIME：PDF 转为 document 块，文本类解码为 text 块，
+// Claude 不支持的类型（如二进制）跳过并返回 nil。
+func buildClaudeFileMessage(c *gin.Context, file *dto.MessageFile) (*dto.ClaudeMediaMessage, error) {
+	if file == nil || file.FileData == "" {
+		return nil, nil
+	}
+	mimeType := ""
+	if ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(file.FileName)), "."); ext != "" {
+		if detected := service.GetMimeTypeByExtension(ext); detected != "application/octet-stream" {
+			mimeType = detected
+		}
+	}
+	source := types.NewFileSourceFromData(file.FileData, mimeType)
+	base64Data, mimeType, err := service.GetBase64Data(c, source, "formatting document for Claude")
+	if err != nil {
+		return nil, fmt.Errorf("get file data failed: %w", err)
+	}
+	switch {
+	case strings.HasPrefix(strings.ToLower(mimeType), "application/pdf"):
+		return &dto.ClaudeMediaMessage{
+			Type: "document",
+			Source: &dto.ClaudeMessageSource{
+				Type:      "base64",
+				MediaType: mimeType,
+				Data:      base64Data,
+			},
+		}, nil
+	case strings.HasPrefix(strings.ToLower(mimeType), "text/"):
+		decodedData, err := base64.StdEncoding.DecodeString(base64Data)
+		if err != nil {
+			return nil, fmt.Errorf("decode text file data failed: %w", err)
+		}
+		return &dto.ClaudeMediaMessage{
+			Type: "text",
+			Text: common.GetPointer(string(decodedData)),
+		}, nil
+	default:
+		msg := fmt.Sprintf("claude: skip unsupported file content, filename=%q, mime=%q", file.FileName, mimeType)
+		if c != nil {
+			logger.LogInfo(c, msg)
+		} else {
+			common.SysLog(msg)
+		}
+		return nil, nil
 	}
 }
 
@@ -375,6 +425,23 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 								Type: "text",
 								Text: common.GetPointer[string](mediaMessage.Text),
 							})
+						}
+					case dto.ContentTypeFile:
+						// 内联文件：按扩展名/内容推断 MIME，PDF→document、文本→text、其余跳过
+						fileMessage, err := buildClaudeFileMessage(c, mediaMessage.GetFile())
+						if err != nil {
+							return nil, err
+						}
+						if fileMessage != nil {
+							claudeMediaMessages = append(claudeMediaMessages, *fileMessage)
+						}
+					case dto.ContentTypeInputAudio, dto.ContentTypeVideoUrl:
+						// Claude 内容块不支持音视频，跳过并记录
+						msg := fmt.Sprintf("claude: skip unsupported media content, type=%s", mediaMessage.Type)
+						if c != nil {
+							logger.LogInfo(c, msg)
+						} else {
+							common.SysLog(msg)
 						}
 					default:
 						source := mediaMessage.ToFileSource()

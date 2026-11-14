@@ -212,6 +212,10 @@ func TestListModelsIncludesTieredBillingModel(t *testing.T) {
 
 func TestListModelsTokenLimitIncludesTieredBillingModel(t *testing.T) {
 	withSelfUseModeDisabled(t)
+	// 与 TestListModelsIncludesTieredBillingModel 保持同一测试语境：
+	// 初始化测试 DB 并关闭 Redis（ListModels 内部会经 GetUserGroup 查询用户分组，
+	// 否则 RedisEnabled 默认为 true 且 RDB 为 nil 时 panic）
+	setupModelListControllerTestDB(t)
 	withTieredBillingConfig(t, map[string]string{
 		"zz-token-tiered-visible-model":      "tiered_expr",
 		"zz-token-tiered-empty-expr-model":   "tiered_expr",
